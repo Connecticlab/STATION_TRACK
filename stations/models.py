@@ -21,12 +21,29 @@ class Pompe(models.Model):
     station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="pompes")
     numero = models.PositiveIntegerField(help_text="Numéro de la pompe au sein de la station")
     actif = models.BooleanField(default=True)
+    employee_affecte = models.ForeignKey(
+        "accounts.Employee", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="pompes_affectees",
+        help_text="Affectation au niveau de la pompe entière. Exclusif avec l'affectation par face.",
+    )
 
     class Meta:
         verbose_name = "Pompe"
         verbose_name_plural = "Pompes"
         unique_together = ("station", "numero")
         ordering = ["station", "numero"]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.employee_affecte_id and self.pk and self.faces.filter(employee_affecte__isnull=False).exists():
+            raise ValidationError(
+                "Impossible d'affecter un employé à la pompe entière : "
+                "une ou plusieurs de ses faces sont déjà affectées individuellement."
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.station.nom} - Pompe {self.numero}"
@@ -37,12 +54,29 @@ class Face(models.Model):
     pompe = models.ForeignKey(Pompe, on_delete=models.CASCADE, related_name="faces")
     numero = models.PositiveIntegerField(help_text="Numéro de la face au sein de la pompe (1 ou 2)")
     actif = models.BooleanField(default=True)
+    employee_affecte = models.ForeignKey(
+        "accounts.Employee", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="faces_affectees",
+        help_text="Affectation au niveau de la face. Exclusif avec l'affectation de toute la pompe.",
+    )
 
     class Meta:
         verbose_name = "Face"
         verbose_name_plural = "Faces"
         unique_together = ("pompe", "numero")
         ordering = ["pompe", "numero"]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.employee_affecte_id and self.pompe_id and self.pompe.employee_affecte_id:
+            raise ValidationError(
+                "Impossible d'affecter un employé à cette face : "
+                "la pompe entière est déjà affectée à un autre employé."
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.pompe} - Face {self.numero}"
