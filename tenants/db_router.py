@@ -1,6 +1,6 @@
 from tenants.context import get_current_tenant_db
 
-APPS_PARTAGEES = {"auth", "admin", "sessions", "contenttypes", "tenants"}
+APPS_PARTAGEES = {"auth", "admin", "sessions", "contenttypes", "tenants", "core", "platform_admin"}
 
 
 class TenantDatabaseRouter:
