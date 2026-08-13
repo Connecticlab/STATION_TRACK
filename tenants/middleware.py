@@ -14,6 +14,9 @@ class TenantMiddleware:
         host = request.get_host().split(":")[0]
         sous_domaine = host.split(".")[0]
 
+        if sous_domaine == "admin":
+            return self.get_response(request)
+
         try:
             societe = Societe.objects.using("default").get(
                 sous_domaine=sous_domaine, actif=True

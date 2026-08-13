@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>StationTrack — Administration</title>
+</head>
+<body>
+    <h1>Connexion Super Admin</h1>
+
+    {% if erreur %}
+        <p style="color: red;">{{ erreur }}</p>
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required>
+
+        <label for="password">Mot de passe</label>
+        <input type="password" id="password" name="password" required>
+
+        <button type="submit">Se connecter</button>
+    </form>
+</body>
+</html>
