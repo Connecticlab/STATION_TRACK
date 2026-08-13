@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'tenants',
     'core',
+    'platform_admin',
+    'accounts',
     'stations',
     'cuves',
     'caisse',
