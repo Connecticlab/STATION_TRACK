@@ -105,6 +105,8 @@ DATABASES = {
 
 DATABASE_ROUTERS = ['tenants.db_router.TenantDatabaseRouter']
 
+BASE_DOMAIN = config('BASE_DOMAIN')
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.1/ref/settings/#auth-password-validators
