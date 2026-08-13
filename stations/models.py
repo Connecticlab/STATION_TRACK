@@ -1,5 +1,7 @@
 from django.db import models
 
+from stations.constants import CARBURANT_CHOICES
+
 
 class Station(models.Model):
     """Une station-service, rattachée à une seule société (implicite : contenue dans la base de la société)."""
@@ -84,13 +86,6 @@ class Face(models.Model):
 
 class Pistolet(models.Model):
     """Un pistolet, rattaché à une face. L'INDEX est toujours rattaché au pistolet, jamais à la pompe."""
-
-    GASOIL = "gasoil"
-    ESSENCE = "essence"
-    CARBURANT_CHOICES = [
-        (GASOIL, "Gasoil"),
-        (ESSENCE, "Essence"),
-    ]
 
     face = models.ForeignKey(Face, on_delete=models.CASCADE, related_name="pistolets")
     numero = models.PositiveIntegerField(
