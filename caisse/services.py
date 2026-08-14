@@ -2,7 +2,7 @@ from stations.constants import GASOIL, ESSENCE
 from stations.models import PrixCarburant
 from stations.services import litres_vendus_par_carburant
 
-from caisse.models import ReleveIndexGerant, ReleveIndexPompiste, SessionCaisse
+from caisse.models import EcritureSolde, ReleveIndexGerant, ReleveIndexPompiste, SessionCaisse, SoldePompiste
 
 
 def confronter_session_caisse(session_caisse, marge_tolerance_litres):
@@ -69,3 +69,51 @@ def confronter_session_caisse(session_caisse, marge_tolerance_litres):
         session_caisse.resultat = SessionCaisse.SURPLUS if ecart_montant > 0 else SessionCaisse.MANQUANT
 
     return session_caisse
+
+
+def appliquer_resultat_au_solde(session_caisse, seuil_alerte_dette_fcfa):
+    """Applique le résultat (déjà calculé par confronter_session_caisse et sauvegardé) d'une
+    SessionCaisse au solde roulant du pompiste : crée une EcritureSolde, met à jour
+    SoldePompiste.solde_courant, et retourne True si le nouveau solde de dette dépasse le
+    seuil d'alerte fourni.
+
+    seuil_alerte_dette_fcfa est fourni explicitement par l'appelant (typiquement
+    societe.seuil_alerte_dette_fcfa), même principe que marge_tolerance_litres dans
+    confronter_session_caisse : aucune dépendance à un contexte global.
+
+    Ne fait rien si session_caisse.resultat n'est pas encore renseigné (confrontation
+    pas encore effectuée). N'envoie AUCUNE notification elle-même — se contente de
+    retourner le booléen d'alerte, à charge de l'appelant de déclencher l'envoi.
+
+    Sauvegarde SoldePompiste et crée EcritureSolde (contrairement à confronter_session_caisse,
+    qui reste pure) : appliquer un résultat au solde est par nature un effet de bord,
+    pas un calcul de prévisualisation.
+    """
+    if session_caisse.resultat is None or session_caisse.montant_ecart is None:
+        return False
+
+    solde_pompiste, _ = SoldePompiste.objects.get_or_create(employee=session_caisse.employee)
+    solde_avant = solde_pompiste.solde_courant
+
+    if session_caisse.resultat == SessionCaisse.SURPLUS:
+        type_ecriture = EcritureSolde.SURPLUS_CONSTATE
+        montant = abs(session_caisse.montant_ecart)
+        solde_apres = solde_avant + montant
+    else:
+        type_ecriture = EcritureSolde.MANQUANT_CONSTATE
+        montant = abs(session_caisse.montant_ecart)
+        solde_apres = solde_avant - montant
+
+    EcritureSolde.objects.create(
+        solde_pompiste=solde_pompiste,
+        session_caisse=session_caisse,
+        type_ecriture=type_ecriture,
+        montant=montant,
+        solde_avant=solde_avant,
+        solde_apres=solde_apres,
+    )
+
+    solde_pompiste.solde_courant = solde_apres
+    solde_pompiste.save()
+
+    return solde_apres < 0 and abs(solde_apres) > seuil_alerte_dette_fcfa
