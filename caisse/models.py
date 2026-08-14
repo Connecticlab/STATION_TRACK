@@ -25,6 +25,19 @@ class SessionCaisse(models.Model):
     )
     resultat = models.CharField(max_length=10, choices=RESULTAT_CHOICES, null=True, blank=True)
     montant_ecart = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    ecart_gasoil = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Écart en litres entre relevé pompiste et relevé Gérant/Chef de piste, pour le gasoil.",
+    )
+    ecart_essence = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text="Écart en litres entre relevé pompiste et relevé Gérant/Chef de piste, pour l'essence.",
+    )
+    divergence_signalee = models.BooleanField(
+        default=False,
+        help_text="Vrai si l'écart gasoil ou essence dépasse la marge de tolérance de la société. "
+                   "Signalement uniquement, ne bloque jamais la clôture.",
+    )
 
     class Meta:
         verbose_name = "Session de caisse"
