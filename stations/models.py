@@ -111,3 +111,34 @@ class Pistolet(models.Model):
 
     def __str__(self):
         return f"Pistolet {self.numero} ({self.get_carburant_display()})"
+
+
+class PrixCarburantManager(models.Manager):
+    def prix_en_vigueur(self, station, carburant, date):
+        """Retourne le PrixCarburant en vigueur pour cette station/carburant à la date donnée
+        (le plus récent dont date_debut <= date). Retourne None si aucun prix n'existe encore."""
+        return (
+            self.filter(station=station, carburant=carburant, date_debut__lte=date)
+            .order_by("-date_debut")
+            .first()
+        )
+
+
+class PrixCarburant(models.Model):
+    """Historique des prix au litre par station et par carburant. La période de validité
+    d'un prix se déduit par requête (jusqu'au prix suivant), pas stockée en date_fin."""
+
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="prix_carburants")
+    carburant = models.CharField(max_length=10, choices=CARBURANT_CHOICES)
+    prix_au_litre = models.DecimalField(max_digits=10, decimal_places=2)
+    date_debut = models.DateTimeField(help_text="Date/heure à partir de laquelle ce prix est en vigueur")
+
+    objects = PrixCarburantManager()
+
+    class Meta:
+        verbose_name = "Prix carburant"
+        verbose_name_plural = "Prix carburants"
+        ordering = ["-date_debut"]
+
+    def __str__(self):
+        return f"{self.station.nom} - {self.get_carburant_display()} : {self.prix_au_litre} FCFA/L (depuis {self.date_debut:%d/%m/%Y})"
