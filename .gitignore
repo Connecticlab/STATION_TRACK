@@ -6,3 +6,7 @@ db.sqlite3
 .env
 *.log
 .DS_Store
+media/
+staticfiles/
+*.egg-info/
+.pytest_cache/
