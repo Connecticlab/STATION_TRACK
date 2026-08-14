@@ -8,6 +8,11 @@ class Societe(models.Model):
     nom_base_donnees = models.CharField(max_length=100, unique=True)
     actif = models.BooleanField(default=True)
     date_creation = models.DateTimeField(auto_now_add=True)
+    marge_tolerance_divergence_litres = models.DecimalField(
+        max_digits=6, decimal_places=2, default=2,
+        help_text="Marge de tolérance (en litres) pour la divergence entre relevé pompiste et "
+                   "relevé Gérant/Chef de piste, au-delà de laquelle une divergence est signalée.",
+    )
 
     class Meta:
         verbose_name = "Société"
