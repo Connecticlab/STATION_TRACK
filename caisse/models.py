@@ -134,3 +134,58 @@ class ReleveIndexGerant(models.Model):
 
     def __str__(self):
         return f"{self.employee.nom_complet} vérifie {self.employee_pompiste.nom_complet} - {self.pistolet} - {self.get_type_releve_display()} : {self.valeur_index}"
+
+
+class SoldePompiste(models.Model):
+    """Solde roulant avoir/dette d'un pompiste. Positif = avoir, négatif = dette.
+    Vit dans caisse (pas accounts) : c'est un concept de caisse, accounts ne connaît
+    que l'identité de l'employé, jamais la logique métier caisse."""
+
+    employee = models.OneToOneField(Employee, on_delete=models.CASCADE, related_name="solde_pompiste")
+    solde_courant = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    date_maj = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Solde pompiste"
+        verbose_name_plural = "Soldes pompistes"
+
+    def __str__(self):
+        nature = "avoir" if self.solde_courant >= 0 else "dette"
+        return f"{self.employee.nom_complet} - {abs(self.solde_courant)} FCFA ({nature})"
+
+
+class EcritureSolde(models.Model):
+    """Trace immuable de chaque mouvement du solde d'un pompiste. Jamais modifiée après coup :
+    toute correction passe par une nouvelle écriture (type AJUSTEMENT_MANUEL)."""
+
+    SURPLUS_CONSTATE = "surplus_constate"
+    MANQUANT_CONSTATE = "manquant_constate"
+    AJUSTEMENT_MANUEL = "ajustement_manuel"
+    TYPE_CHOICES = [
+        (SURPLUS_CONSTATE, "Surplus constaté"),
+        (MANQUANT_CONSTATE, "Manquant constaté"),
+        (AJUSTEMENT_MANUEL, "Ajustement manuel"),
+    ]
+
+    solde_pompiste = models.ForeignKey(SoldePompiste, on_delete=models.CASCADE, related_name="ecritures")
+    session_caisse = models.ForeignKey(
+        SessionCaisse, on_delete=models.PROTECT, related_name="ecritures_solde",
+        null=True, blank=True,
+        help_text="Session de caisse à l'origine de cette écriture. Nulle pour un ajustement manuel.",
+    )
+    type_ecriture = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    montant = models.DecimalField(
+        max_digits=12, decimal_places=2,
+        help_text="Toujours positif. Le signe de l'effet se déduit du type_ecriture.",
+    )
+    solde_avant = models.DecimalField(max_digits=12, decimal_places=2)
+    solde_apres = models.DecimalField(max_digits=12, decimal_places=2)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Écriture de solde"
+        verbose_name_plural = "Écritures de solde"
+        ordering = ["-date_creation"]
+
+    def __str__(self):
+        return f"{self.solde_pompiste.employee.nom_complet} - {self.get_type_ecriture_display()} : {self.montant} FCFA"
