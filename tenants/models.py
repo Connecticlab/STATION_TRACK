@@ -1,4 +1,15 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+
+
+def logo_upload_path(instance, filename):
+    return f"logos/{instance.sous_domaine}/{filename}"
+
+
+def validate_taille_logo(fichier):
+    limite_mo = 2
+    if fichier.size > limite_mo * 1024 * 1024:
+        raise ValidationError(f"Le logo ne doit pas dépasser {limite_mo} Mo.")
 
 
 class Societe(models.Model):
@@ -17,6 +28,12 @@ class Societe(models.Model):
         max_digits=12, decimal_places=2, default=50000,
         help_text="Si le solde de dette cumulé d'un pompiste dépasse ce seuil (en FCFA), "
                    "une alerte est déclenchée pour le pompiste, le Gérant, et l'Admin Siège.",
+    )
+    logo = models.ImageField(
+        upload_to=logo_upload_path, blank=True, null=True,
+        validators=[validate_taille_logo],
+        help_text="Logo de la société, affiché dans l'en-tête des PV de caisse générés. "
+                   "Optionnel — le PV se génère normalement sans logo (nom en texte).",
     )
 
     class Meta:
