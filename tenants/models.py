@@ -13,6 +13,11 @@ class Societe(models.Model):
         help_text="Marge de tolérance (en litres) pour la divergence entre relevé pompiste et "
                    "relevé Gérant/Chef de piste, au-delà de laquelle une divergence est signalée.",
     )
+    seuil_alerte_dette_fcfa = models.DecimalField(
+        max_digits=12, decimal_places=2, default=50000,
+        help_text="Si le solde de dette cumulé d'un pompiste dépasse ce seuil (en FCFA), "
+                   "une alerte est déclenchée pour le pompiste, le Gérant, et l'Admin Siège.",
+    )
 
     class Meta:
         verbose_name = "Société"
