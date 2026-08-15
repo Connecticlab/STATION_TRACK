@@ -66,7 +66,12 @@ def confronter_session_caisse(session_caisse, marge_tolerance_litres):
     if session_caisse.montant_encaisse is not None:
         ecart_montant = session_caisse.montant_encaisse - montant_theorique
         session_caisse.montant_ecart = ecart_montant
-        session_caisse.resultat = SessionCaisse.SURPLUS if ecart_montant > 0 else SessionCaisse.MANQUANT
+        if ecart_montant > 0:
+            session_caisse.resultat = SessionCaisse.SURPLUS
+        elif ecart_montant < 0:
+            session_caisse.resultat = SessionCaisse.MANQUANT
+        else:
+            session_caisse.resultat = SessionCaisse.EXACT
 
     return session_caisse
 
@@ -90,6 +95,9 @@ def appliquer_resultat_au_solde(session_caisse, seuil_alerte_dette_fcfa):
     pas un calcul de prévisualisation.
     """
     if session_caisse.resultat is None or session_caisse.montant_ecart is None:
+        return False
+
+    if session_caisse.resultat == SessionCaisse.EXACT:
         return False
 
     solde_pompiste, _ = SoldePompiste.objects.get_or_create(employee=session_caisse.employee)

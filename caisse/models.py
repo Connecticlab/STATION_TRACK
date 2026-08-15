@@ -12,9 +12,11 @@ class SessionCaisse(models.Model):
 
     MANQUANT = "manquant"
     SURPLUS = "surplus"
+    EXACT = "exact"
     RESULTAT_CHOICES = [
         (MANQUANT, "Manquant"),
         (SURPLUS, "Surplus"),
+        (EXACT, "Exact"),
     ]
 
     employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="sessions_caisse")
