@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 
 from accounts.models import Employee
-from stations.models import Pistolet
+from stations.models import Pistolet, Station
 
 
 class SessionCaisse(models.Model):
@@ -191,3 +191,63 @@ class EcritureSolde(models.Model):
 
     def __str__(self):
         return f"{self.solde_pompiste.employee.nom_complet} - {self.get_type_ecriture_display()} : {self.montant} FCFA"
+
+
+class DepotBancaire(models.Model):
+    """Envoi d'argent en banque par le Gérant (exclusif à ce rôle, jamais le Chef de piste).
+    Volontairement indépendant du théorique : ne jamais traiter un montant qui ne correspond
+    pas exactement au théorique/solde comme une anomalie automatique — le Gérant peut être
+    autorisé à garder une partie de l'encaissement en caisse pour urgences."""
+
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="depots_bancaires")
+    employee = models.ForeignKey(
+        Employee, on_delete=models.PROTECT, related_name="depots_bancaires",
+        help_text="Le Gérant qui a effectué le dépôt.",
+    )
+    montant = models.DecimalField(max_digits=12, decimal_places=2)
+    banque = models.CharField(max_length=255, help_text="Nom de la banque/agence.")
+    reference = models.CharField(max_length=100, blank=True, help_text="Numéro de reçu, optionnel.")
+    date_heure = models.DateTimeField(
+        help_text="Moment réel du dépôt (modifiable). À ne jamais confondre avec date_creation.",
+    )
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Horodatage technique de la saisie en base (audit uniquement).",
+    )
+
+    class Meta:
+        verbose_name = "Dépôt bancaire"
+        verbose_name_plural = "Dépôts bancaires"
+        ordering = ["-date_heure"]
+
+    def __str__(self):
+        return f"{self.station.nom} - Dépôt {self.montant} FCFA ({self.banque}) le {self.date_heure:%d/%m/%Y}"
+
+
+class DepenseCaisse(models.Model):
+    """Dépense payée directement depuis la caisse de la station (Gérant OU Chef de piste,
+    pas de restriction de rôle contrairement à DepotBancaire). Déductible du montant conservé
+    en caisse."""
+
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="depenses_caisse")
+    employee = models.ForeignKey(
+        Employee, on_delete=models.PROTECT, related_name="depenses_caisse",
+        help_text="Le Gérant ou Chef de piste qui a enregistré la dépense.",
+    )
+    montant = models.DecimalField(max_digits=12, decimal_places=2)
+    motif = models.CharField(max_length=255, help_text="Texte libre — pas de catégories prédéfinies pour l'instant.")
+    date_heure = models.DateTimeField(
+        help_text="Moment réel de la dépense (modifiable). À ne jamais confondre avec date_creation.",
+    )
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Horodatage technique de la saisie en base (audit uniquement).",
+    )
+
+    class Meta:
+        verbose_name = "Dépense de caisse"
+        verbose_name_plural = "Dépenses de caisse"
+        ordering = ["-date_heure"]
+
+    def __str__(self):
+        return f"{self.station.nom} - Dépense {self.montant} FCFA ({self.motif}) le {self.date_heure:%d/%m/%Y}"
