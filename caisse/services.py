@@ -2,7 +2,10 @@ from stations.constants import GASOIL, ESSENCE
 from stations.models import PrixCarburant
 from stations.services import litres_vendus_par_carburant
 
-from caisse.models import EcritureSolde, ReleveIndexGerant, ReleveIndexPompiste, SessionCaisse, SoldePompiste
+from caisse.models import (
+    DepenseCaisse, DepotBancaire, EcritureSolde, ReleveIndexGerant,
+    ReleveIndexPompiste, SessionCaisse, SoldePompiste,
+)
 
 
 def confronter_session_caisse(session_caisse, marge_tolerance_litres):
@@ -125,3 +128,46 @@ def appliquer_resultat_au_solde(session_caisse, seuil_alerte_dette_fcfa):
     solde_pompiste.save()
 
     return solde_apres < 0 and abs(solde_apres) > seuil_alerte_dette_fcfa
+
+
+def montant_conserve_caisse(station, date_debut, date_fin):
+    """Calcule le montant conservé en caisse pour une station, sur un intervalle donné :
+    montant_conserve = encaisse_total - depots_banque - depenses_caisse
+
+    encaisse_total = somme des SessionCaisse.montant_encaisse des pompistes de la station
+    (via employee__station=station) dont la date tombe dans l'intervalle. Un Employee sans
+    station (ex. Admin Siège) est naturellement exclu par le filtre, sans erreur.
+
+    Fonction pure : ne sauvegarde rien, retourne un dict détaillé. Le résultat est purement
+    descriptif — un dépôt bancaire est volontairement indépendant du théorique (le Gérant
+    peut garder une partie de l'encaissement pour urgences), donc ce montant ne doit JAMAIS
+    être présenté comme une anomalie automatique dans l'interface.
+    """
+    sessions = SessionCaisse.objects.filter(
+        employee__station=station, date__range=(date_debut, date_fin)
+    )
+    encaisse_total = sum(
+        s.montant_encaisse for s in sessions if s.montant_encaisse is not None
+    ) or 0
+
+    depots = DepotBancaire.objects.filter(
+        station=station, date_heure__range=(date_debut, date_fin)
+    )
+    depots_banque = sum(d.montant for d in depots) or 0
+
+    depenses = DepenseCaisse.objects.filter(
+        station=station, date_heure__range=(date_debut, date_fin)
+    )
+    depenses_caisse = sum(d.montant for d in depenses) or 0
+
+    montant_conserve = encaisse_total - depots_banque - depenses_caisse
+
+    return {
+        "station": station,
+        "date_debut": date_debut,
+        "date_fin": date_fin,
+        "encaisse_total": encaisse_total,
+        "depots_banque": depots_banque,
+        "depenses_caisse": depenses_caisse,
+        "montant_conserve": montant_conserve,
+    }
