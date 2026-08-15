@@ -29,6 +29,14 @@ class Societe(models.Model):
         help_text="Si le solde de dette cumulé d'un pompiste dépasse ce seuil (en FCFA), "
                    "une alerte est déclenchée pour le pompiste, le Gérant, et l'Admin Siège.",
     )
+    marge_tolerance_ecart_carburant_mensuel_litres = models.DecimalField(
+        max_digits=8, decimal_places=2, default=50,
+        help_text="Marge de tolérance (en litres) pour le cumul mensuel de l'écart carburant "
+                   "(consommé selon les cuves vs vendu selon les pompes). Au-delà, statut "
+                   "Perte/Coulage plutôt que Normal. Distinct de la marge de divergence "
+                   "pompiste/Gérant : nature d'écart différente (stock physique cumulé, pas "
+                   "une erreur de lecture ponctuelle).",
+    )
     logo = models.ImageField(
         upload_to=logo_upload_path, blank=True, null=True,
         validators=[validate_taille_logo],

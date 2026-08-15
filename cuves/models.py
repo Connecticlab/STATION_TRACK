@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 from stations.constants import CARBURANT_CHOICES
 from stations.models import Station
@@ -35,7 +36,15 @@ class Jauge(models.Model):
         help_text="Quantité mesurée agrégée (somme de toutes les cuves de ce carburant), en litres",
     )
     date_jauge = models.DateField()
-    date_creation = models.DateTimeField(auto_now_add=True)
+    date_mesure = models.DateTimeField(
+        default=timezone.now,
+        help_text="Moment réel de la mesure physique sur le terrain (modifiable). "
+                   "À utiliser pour tout calcul métier (écart carburant), jamais date_creation.",
+    )
+    date_creation = models.DateTimeField(
+        auto_now_add=True,
+        help_text="Horodatage technique de la création de l'enregistrement en base (audit uniquement).",
+    )
 
     class Meta:
         verbose_name = "Jauge"
