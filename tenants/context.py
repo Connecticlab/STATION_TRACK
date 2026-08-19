@@ -10,3 +10,13 @@ def set_current_tenant_db(db_name: str) -> None:
 
 def get_current_tenant_db() -> str:
     return current_tenant_db.get()
+
+
+def reset_current_tenant_db() -> None:
+    """Réinitialise le contexte vers la base par défaut ("default", la base maître).
+    À appeler systématiquement (idéalement dans un finally) après toute bascule manuelle
+    du contexte en dehors du cycle normal middleware/requête — par exemple à la fin de
+    create_company, pour ne jamais laisser un worker "coincé" sur la base d'une société
+    après une opération ponctuelle. Un oubli ici est un risque de fuite de données
+    inter-société sur les requêtes suivantes traitées par le même worker."""
+    current_tenant_db.set("default")

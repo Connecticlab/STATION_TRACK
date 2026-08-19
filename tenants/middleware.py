@@ -1,6 +1,7 @@
 from django.http import HttpResponseNotFound
 
 from tenants.context import set_current_tenant_db
+from tenants.db_utils import register_company_database
 from tenants.models import Societe
 
 
@@ -25,6 +26,7 @@ class TenantMiddleware:
             return HttpResponseNotFound("Société introuvable pour ce sous-domaine.")
 
         request.societe = societe
+        register_company_database(societe)
         set_current_tenant_db(societe.nom_base_donnees)
 
         response = self.get_response(request)
