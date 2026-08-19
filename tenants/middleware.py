@@ -16,6 +16,7 @@ class TenantMiddleware:
         sous_domaine = host.split(".")[0]
 
         if sous_domaine == "admin":
+            request.urlconf = "config.urls_platform_admin"
             return self.get_response(request)
 
         try:
@@ -26,6 +27,7 @@ class TenantMiddleware:
             return HttpResponseNotFound("Société introuvable pour ce sous-domaine.")
 
         request.societe = societe
+        request.urlconf = "config.urls_accounts"
         register_company_database(societe)
         set_current_tenant_db(societe.nom_base_donnees)
 

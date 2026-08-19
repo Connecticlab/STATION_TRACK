@@ -1,23 +1,7 @@
-"""
-URL configuration for config project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.1/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
-from django.contrib import admin
-from django.urls import path, include
-
-urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('', include('platform_admin.urls')),
-]
+"""URLconf de secours (ROOT_URLCONF). NE DOIT JAMAIS contenir de route exploitable
+(pas d'admin.site.urls, pas platform_admin, pas accounts) : c'est le filet de securite
+ultime si TenantMiddleware ne parvient pas a fixer request.urlconf (bug futur, cas
+non anticipe). Reste volontairement vide — toute requete qui l'atteint recoit une 404
+standard, plutot que d'exposer accidentellement une interface sensible sur le mauvais
+sous-domaine."""
+urlpatterns = []
