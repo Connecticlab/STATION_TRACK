@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StationTrack — Ma caisse</title>
+<style>
+:root{
+  --black:#070b10;--panel:#121a23;--line:#283542;
+  --blue:#1769ff;--orange:#ff7900;--green:#1fae63;--white:#f6f8fb;--muted:#8b98a8;
+  --danger:#ff5470;--danger-bg:rgba(255,84,112,.1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--black);color:var(--white)}
+body{padding:16px;padding-bottom:48px}
+.wrap{max-width:640px;margin:0 auto}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding:4px 2px}
+.header h1{font-size:19px;margin:0}
+.header .role{font-size:11px;color:var(--muted);margin-top:2px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.card h3{font-size:14px;margin:14px 0 8px;color:#c8d3df}
+.pistolet-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.pistolet-row label{flex:1;font-size:13.5px;color:var(--white)}
+.pistolet-row input{
+  width:130px;height:50px;background:#0c141c;border:1px solid var(--line);border-radius:10px;
+  color:white;font-size:20px;text-align:center;padding:0 8px;font-family:inherit
+}
+.pistolet-row input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,105,255,.16)}
+.ref{font-size:11px;color:var(--muted);display:block;margin-top:2px}
+.big-btn{
+  width:100%;height:58px;border:0;border-radius:14px;color:white;font-weight:800;
+  font-size:16px;cursor:pointer;margin-top:8px;font-family:inherit
+}
+.big-btn.start{background:var(--green);box-shadow:0 10px 26px rgba(31,174,99,.3)}
+.big-btn.close{background:var(--danger);box-shadow:0 10px 26px rgba(255,84,112,.28)}
+.payment-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+.pay-form{background:#0c141c;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.pay-form .label{font-size:12px;font-weight:700;margin-bottom:8px}
+.pay-form.cash .label{color:var(--green)}
+.pay-form.wave .label{color:var(--blue)}
+.pay-form.orange .label{color:var(--orange)}
+.pay-form input{
+  width:100%;height:44px;background:#070b10;border:1px solid var(--line);border-radius:8px;
+  color:white;font-size:16px;text-align:center;margin-bottom:8px;font-family:inherit
+}
+.pay-form button{
+  width:100%;height:40px;border:0;border-radius:8px;color:white;font-weight:700;font-size:13px;
+  cursor:pointer;font-family:inherit
+}
+.pay-form.cash button{background:var(--green)}
+.pay-form.wave button{background:var(--blue)}
+.pay-form.orange button{background:var(--orange)}
+.totaux{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
+.total-item{background:#0c141c;border-radius:10px;padding:10px;text-align:center}
+.total-item .val{font-size:16px;font-weight:800}
+.total-item .lbl{font-size:9.5px;color:var(--muted);text-transform:uppercase;margin-top:2px}
+.error-banner{
+  background:var(--danger-bg);border:1px solid rgba(255,84,112,.32);color:#ffb3c0;
+  border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px
+}
+.error-banner ul{margin:6px 0 0;padding-left:18px}
+.confirmation{text-align:center;padding:36px 20px}
+.confirmation .icon{font-size:48px;margin-bottom:10px}
+.confirmation h2{font-size:20px;margin:0 0 8px}
+.confirmation p{color:var(--muted);font-size:13.5px;margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div>
+      <h1>{{ employee.nom_complet }}</h1>
+      <div class="role">Pompiste</div>
+    </div>
+  </div>
+
+  {% if erreurs %}
+  <div class="error-banner">
+    Corrigez les points suivants :
+    <ul>
+      {% for e in erreurs %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if a_fin %}
+    <div class="card confirmation">
+      <div class="icon">✅</div>
+      <h2>Caisse clôturée</h2>
+      <p>Votre journée est enregistrée. À demain !</p>
+    </div>
+
+  {% else %}
+
+    {% if a_depart %}
+      <div class="card">
+        <h2>Paiements du service</h2>
+        <div class="payment-grid">
+          <form class="pay-form cash" method="post" action="{% url 'accounts:pompiste_ajouter_paiement' %}">
+            {% csrf_token %}
+            <input type="hidden" name="methode" value="cash">
+            <div class="label">🟩 Cash</div>
+            <input type="number" name="montant" inputmode="decimal" placeholder="Montant" required>
+            <button type="submit">Ajouter</button>
+          </form>
+          <form class="pay-form wave" method="post" action="{% url 'accounts:pompiste_ajouter_paiement' %}">
+            {% csrf_token %}
+            <input type="hidden" name="methode" value="wave">
+            <div class="label">🟦 Wave</div>
+            <input type="number" name="montant" inputmode="decimal" placeholder="Montant" required>
+            <button type="submit">Ajouter</button>
+          </form>
+        </div>
+        <div class="payment-grid" style="grid-template-columns:1fr">
+          <form class="pay-form orange" method="post" action="{% url 'accounts:pompiste_ajouter_paiement' %}">
+            {% csrf_token %}
+            <input type="hidden" name="methode" value="orange_money">
+            <div class="label">🟧 Orange Money</div>
+            <input type="number" name="montant" inputmode="decimal" placeholder="Montant" required>
+            <button type="submit">Ajouter</button>
+          </form>
+        </div>
+
+        <div class="totaux">
+          <div class="total-item"><div class="val">{{ session.montant_cash }}</div><div class="lbl">Cash</div></div>
+          <div class="total-item"><div class="val">{{ session.montant_wave }}</div><div class="lbl">Wave</div></div>
+          <div class="total-item"><div class="val">{{ session.montant_orange_money }}</div><div class="lbl">Orange</div></div>
+        </div>
+      </div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      {% for groupe_pompe in structure %}
+        <div class="card">
+          <h2>Pompe {{ groupe_pompe.pompe.numero }}</h2>
+          {% for groupe_face in groupe_pompe.faces %}
+            <h3>Face {{ groupe_face.face.numero }}</h3>
+            {% for pistolet in groupe_face.pistolets %}
+              <div class="pistolet-row">
+                <label for="index_{{ pistolet.pk }}">
+                  {{ pistolet.get_carburant_display }} {{ pistolet.numero }}
+                </label>
+                <input type="number" step="0.01" inputmode="decimal"
+                       id="index_{{ pistolet.pk }}" name="index_{{ pistolet.pk }}" required>
+              </div>
+            {% endfor %}
+          {% endfor %}
+        </div>
+      {% endfor %}
+
+      {% if not a_depart %}
+        <button type="submit" class="big-btn start">DÉMARRER MA CAISSE</button>
+      {% else %}
+        <button type="submit" class="big-btn close">CLÔTURER MA CAISSE</button>
+      {% endif %}
+    </form>
+
+  {% endif %}
+
+</div>
+</body>
+</html>

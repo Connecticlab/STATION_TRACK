@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.shortcuts import render, redirect
 from django.utils import timezone
 
+from accounts.decorators import require_employee_login
 from accounts.models import Employee, LoginAttemptEmployee
 
 
@@ -85,3 +86,161 @@ def employee_login(request):
                 erreur = "Identifiants invalides."
 
     return render(request, "accounts/login.html", {"erreur": erreur})
+
+
+def _structurer_pistolets_par_pompe_face(pistolets_queryset):
+    """Organise un queryset de Pistolet en une structure hierarchique
+    [{"pompe": Pompe, "faces": [{"face": Face, "pistolets": [Pistolet, ...]}, ...]}, ...]
+    pour un affichage groupe (jamais une liste plate) — le pompiste doit toujours voir
+    de quelle Pompe/Face vient chaque pistolet, pas seulement son numero global."""
+    pistolets = list(
+        pistolets_queryset.select_related("face", "face__pompe").order_by(
+            "face__pompe__numero", "face__numero", "numero"
+        )
+    )
+
+    structure = []
+    pompe_courante = None
+    face_courante = None
+
+    for pistolet in pistolets:
+        pompe = pistolet.face.pompe
+        face = pistolet.face
+
+        if pompe_courante is None or pompe_courante["pompe"].pk != pompe.pk:
+            pompe_courante = {"pompe": pompe, "faces": []}
+            structure.append(pompe_courante)
+            face_courante = None
+
+        if face_courante is None or face_courante["face"].pk != face.pk:
+            face_courante = {"face": face, "pistolets": []}
+            pompe_courante["faces"].append(face_courante)
+
+        face_courante["pistolets"].append(pistolet)
+
+    return structure
+
+
+@require_employee_login(roles=[Employee.POMPISTE])
+def pompiste_accueil(request):
+    from django.db import transaction
+    from django.utils import timezone
+
+    from caisse.models import ReleveIndexPompiste, SessionCaisse
+    from stations.services import pistolets_affectes_a
+
+    employee = request.employee
+    pistolets = pistolets_affectes_a(employee)
+    structure = _structurer_pistolets_par_pompe_face(pistolets)
+
+    aujourdhui = timezone.localtime(timezone.now()).date()
+    session = SessionCaisse.objects.filter(employee=employee, date=aujourdhui).first()
+
+    a_depart = session is not None and ReleveIndexPompiste.objects.filter(
+        session_caisse=session, type_releve=ReleveIndexPompiste.DEPART
+    ).exists()
+    a_fin = session is not None and session.montant_encaisse is not None
+
+    erreurs = []
+
+    if request.method == "POST" and not a_fin:
+        type_releve = ReleveIndexPompiste.DEPART if not a_depart else ReleveIndexPompiste.FIN
+        valeurs_validees = {}
+
+        # Passe 1 : validation complete de tous les champs avant toute creation.
+        for pistolet in pistolets:
+            champ = f"index_{pistolet.pk}"
+            valeur_brute = request.POST.get(champ, "").strip()
+
+            if not valeur_brute:
+                erreurs.append(f"Index manquant pour {pistolet}.")
+                continue
+
+            try:
+                valeur = float(valeur_brute)
+            except ValueError:
+                erreurs.append(f"Index invalide pour {pistolet}.")
+                continue
+
+            if type_releve == ReleveIndexPompiste.FIN:
+                releve_depart = ReleveIndexPompiste.objects.filter(
+                    session_caisse=session, pistolet=pistolet, type_releve=ReleveIndexPompiste.DEPART
+                ).first()
+                if releve_depart and valeur < float(releve_depart.valeur_index):
+                    erreurs.append(
+                        f"L'index de fin de {pistolet} ne peut pas être inférieur à l'index de départ."
+                    )
+                    continue
+
+            valeurs_validees[pistolet.pk] = valeur
+
+        # Passe 2 : creation groupee, uniquement si aucune erreur.
+        if not erreurs:
+            maintenant = timezone.now()
+            with transaction.atomic():
+                for pistolet in pistolets:
+                    ReleveIndexPompiste.objects.create(
+                        employee=employee,
+                        pistolet=pistolet,
+                        type_releve=type_releve,
+                        valeur_index=valeurs_validees[pistolet.pk],
+                        date_heure=maintenant,
+                    )
+
+                if type_releve == ReleveIndexPompiste.FIN:
+                    session_a_jour = SessionCaisse.objects.get(pk=session.pk)
+                    session_a_jour.montant_encaisse = (
+                        session_a_jour.montant_cash
+                        + session_a_jour.montant_wave
+                        + session_a_jour.montant_orange_money
+                    )
+                    session_a_jour.save()
+
+            return redirect("accounts:pompiste_accueil")
+
+    contexte = {
+        "employee": employee,
+        "structure": structure,
+        "a_depart": a_depart,
+        "a_fin": a_fin,
+        "session": session,
+        "erreurs": erreurs,
+    }
+    return render(request, "accounts/pompiste_accueil.html", contexte)
+
+
+@require_employee_login(roles=[Employee.POMPISTE])
+def pompiste_ajouter_paiement(request):
+    """Incremente un compteur de paiement (cash/wave/orange_money) sur la session du jour,
+    de facon atomique (F() expression) pour eviter tout risque d'ecrasement en cas de
+    double-clic ou de requetes concurrentes."""
+    from django.db.models import F
+    from django.utils import timezone
+
+    from caisse.models import SessionCaisse
+
+    if request.method != "POST":
+        return redirect("accounts:pompiste_accueil")
+
+    employee = request.employee
+    aujourdhui = timezone.localtime(timezone.now()).date()
+    methode = request.POST.get("methode")
+    montant_brut = request.POST.get("montant", "").strip()
+
+    champs_autorises = {
+        "cash": "montant_cash",
+        "wave": "montant_wave",
+        "orange_money": "montant_orange_money",
+    }
+
+    if methode in champs_autorises:
+        try:
+            montant = float(montant_brut)
+            if montant > 0:
+                SessionCaisse.objects.filter(employee=employee, date=aujourdhui).update(
+                    **{champs_autorises[methode]: F(champs_autorises[methode]) + montant}
+                )
+        except ValueError:
+            pass
+
+    return redirect("accounts:pompiste_accueil")
