@@ -21,9 +21,22 @@ class SessionCaisse(models.Model):
 
     employee = models.ForeignKey(Employee, on_delete=models.PROTECT, related_name="sessions_caisse")
     date = models.DateField()
+    montant_cash = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="Cumul des paiements en espèces, incrémenté par le pompiste en cours de service.",
+    )
+    montant_wave = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="Cumul des paiements Wave, incrémenté par le pompiste en cours de service.",
+    )
+    montant_orange_money = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="Cumul des paiements Orange Money, incrémenté par le pompiste en cours de service.",
+    )
     montant_encaisse = models.DecimalField(
         max_digits=12, decimal_places=2, null=True, blank=True,
-        help_text="Montant réellement encaissé, déclaré par le pompiste à la clôture",
+        help_text="Somme automatique de montant_cash + montant_wave + montant_orange_money "
+                   "à la clôture. Pas une saisie manuelle unique.",
     )
     resultat = models.CharField(max_length=10, choices=RESULTAT_CHOICES, null=True, blank=True)
     montant_ecart = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
