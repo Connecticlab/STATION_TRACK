@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StationTrack — Ma caisse</title>
+{% load formatage %}
 <style>
 :root{
   --black:#070b10;--panel:#121a23;--line:#283542;
@@ -89,8 +90,15 @@ body{padding:16px;padding-bottom:48px}
     <div class="card confirmation">
       <div class="icon">✅</div>
       <h2>Caisse clôturée</h2>
-      <p>Votre journée est enregistrée. À demain !</p>
+      <p>Votre caisse d'aujourd'hui est clôturée, revenez demain.</p>
     </div>
+
+    <a class="big-btn start" style="display:block;text-align:center;line-height:58px;text-decoration:none;box-sizing:border-box;"
+       href="{% url 'accounts:pompiste_recu' session.pk %}">VOIR MON REÇU</a>
+    <a class="big-btn" style="display:block;text-align:center;line-height:58px;text-decoration:none;box-sizing:border-box;background:#1c2733;color:var(--white);"
+       href="{% url 'accounts:pompiste_historique' %}">MON HISTORIQUE</a>
+    <a class="big-btn" style="display:block;text-align:center;line-height:58px;text-decoration:none;box-sizing:border-box;background:transparent;color:var(--muted);border:1px solid var(--line);"
+       href="{% url 'accounts:logout' %}">SE DÉCONNECTER</a>
 
   {% else %}
 
@@ -124,9 +132,9 @@ body{padding:16px;padding-bottom:48px}
         </div>
 
         <div class="totaux">
-          <div class="total-item"><div class="val">{{ session.montant_cash }}</div><div class="lbl">Cash</div></div>
-          <div class="total-item"><div class="val">{{ session.montant_wave }}</div><div class="lbl">Wave</div></div>
-          <div class="total-item"><div class="val">{{ session.montant_orange_money }}</div><div class="lbl">Orange</div></div>
+          <div class="total-item"><div class="val">{{ session.montant_cash|fcfa }}</div><div class="lbl">Cash</div></div>
+          <div class="total-item"><div class="val">{{ session.montant_wave|fcfa }}</div><div class="lbl">Wave</div></div>
+          <div class="total-item"><div class="val">{{ session.montant_orange_money|fcfa }}</div><div class="lbl">Orange</div></div>
         </div>
       </div>
     {% endif %}

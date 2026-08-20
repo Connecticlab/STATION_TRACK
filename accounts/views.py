@@ -47,6 +47,14 @@ def _url_apres_connexion(employee):
     return redirect("accounts:login")
 
 
+def employee_logout(request):
+    """Deconnexion generique, reutilisable pour tous les roles Employee (pompiste,
+    gerant, chef de piste)."""
+    request.session.pop("employee_id", None)
+    request.session.pop("employee_societe_slug", None)
+    return redirect("accounts:login")
+
+
 def employee_login(request):
     erreur = None
 
@@ -244,3 +252,53 @@ def pompiste_ajouter_paiement(request):
             pass
 
     return redirect("accounts:pompiste_accueil")
+
+
+@require_employee_login(roles=[Employee.POMPISTE])
+def pompiste_recu(request, session_id):
+    """Recu de cloture (pas 'PV de caisse' — terme reserve au document officiel apres
+    confrontation Gerant, qui n'existe pas encore a ce stade). Recapitule la propre
+    declaration du pompiste : index, litres vendus (calcules depuis SES relevés), et
+    ventilation par methode de paiement."""
+    from django.shortcuts import get_object_or_404
+
+    from caisse.models import ReleveIndexPompiste, SessionCaisse
+    from stations.services import litres_vendus_par_carburant, pistolets_affectes_a
+
+    employee = request.employee
+    # Verification objet, pas seulement isolation par societe : un pompiste ne doit
+    # jamais pouvoir consulter le recu d'un autre pompiste.
+    session = get_object_or_404(SessionCaisse, pk=session_id, employee=employee)
+
+    releves = ReleveIndexPompiste.objects.filter(session_caisse=session).select_related(
+        "pistolet", "pistolet__face", "pistolet__face__pompe"
+    ).order_by("date_heure")
+    premiere_date = releves.first().date_heure if releves.exists() else None
+    derniere_date = releves.last().date_heure if releves.exists() else None
+
+    litres_vendus = {}
+    if premiere_date and derniere_date:
+        pistolets_ids = list(pistolets_affectes_a(employee).values_list("id", flat=True))
+        litres_vendus = litres_vendus_par_carburant(
+            pistolets_ids, releves, premiere_date, derniere_date
+        )
+
+    contexte = {
+        "employee": employee,
+        "session": session,
+        "releves": releves,
+        "litres_vendus": litres_vendus,
+    }
+    return render(request, "accounts/pompiste_recu.html", contexte)
+
+
+@require_employee_login(roles=[Employee.POMPISTE])
+def pompiste_historique(request):
+    """Liste des sessions de caisse passees du pompiste, avec lien vers chaque recu."""
+    from caisse.models import SessionCaisse
+
+    employee = request.employee
+    sessions = SessionCaisse.objects.filter(employee=employee).order_by("-date")
+
+    contexte = {"employee": employee, "sessions": sessions}
+    return render(request, "accounts/pompiste_historique.html", contexte)
