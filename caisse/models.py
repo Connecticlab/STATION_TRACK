@@ -137,6 +137,7 @@ class ReleveIndexGerant(models.Model):
         verbose_name = "Relevé d'index (Gérant/Chef de piste)"
         verbose_name_plural = "Relevés d'index (Gérant/Chef de piste)"
         ordering = ["date_heure"]
+        unique_together = ("employee_pompiste", "pistolet", "type_releve", "session_caisse")
 
     def save(self, *args, **kwargs):
         if self.session_caisse_id is None:
