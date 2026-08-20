@@ -302,3 +302,56 @@ def pompiste_historique(request):
 
     contexte = {"employee": employee, "sessions": sessions}
     return render(request, "accounts/pompiste_historique.html", contexte)
+
+
+@require_employee_login(roles=[Employee.GERANT, Employee.CHEF_DE_PISTE])
+def gerant_accueil(request):
+    """Tableau de bord de la station : TOUS les pompistes actifs de la station,
+    avec leur statut du jour (pas demarre / en cours / cloture) — pas seulement ceux
+    ayant deja une activite, pour que le Gerant/Chef de piste puisse voir qui n'a pas
+    encore commence sa journee."""
+    from django.utils import timezone
+
+    from caisse.models import ReleveIndexPompiste, SessionCaisse
+
+    employee = request.employee
+    aujourdhui = timezone.localtime(timezone.now()).date()
+
+    pompistes = Employee.objects.filter(
+        role=Employee.POMPISTE, station=employee.station, actif=True
+    ).order_by("nom_complet")
+
+    lignes = []
+    for pompiste in pompistes:
+        session = SessionCaisse.objects.filter(employee=pompiste, date=aujourdhui).first()
+
+        if session is None:
+            statut = "pas_demarre"
+        elif session.montant_encaisse is not None:
+            statut = "cloture"
+        else:
+            statut = "en_cours"
+
+        lignes.append({"pompiste": pompiste, "session": session, "statut": statut})
+
+    nb_pas_demarre = sum(1 for l in lignes if l["statut"] == "pas_demarre")
+    nb_en_cours = sum(1 for l in lignes if l["statut"] == "en_cours")
+    nb_cloture = sum(1 for l in lignes if l["statut"] == "cloture")
+
+    ca_jour = sum(
+        l["session"].montant_encaisse
+        for l in lignes
+        if l["session"] and l["session"].montant_encaisse is not None
+    ) or 0
+
+    contexte = {
+        "employee": employee,
+        "lignes": lignes,
+        "nb_pompistes": len(lignes),
+        "nb_pas_demarre": nb_pas_demarre,
+        "nb_en_cours": nb_en_cours,
+        "nb_cloture": nb_cloture,
+        "ca_jour": ca_jour,
+        "aujourdhui": aujourdhui,
+    }
+    return render(request, "accounts/gerant_accueil.html", contexte)

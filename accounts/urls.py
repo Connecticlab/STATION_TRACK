@@ -11,4 +11,5 @@ urlpatterns = [
     path("pompiste/paiement/", views.pompiste_ajouter_paiement, name="pompiste_ajouter_paiement"),
     path("pompiste/recu/<int:session_id>/", views.pompiste_recu, name="pompiste_recu"),
     path("pompiste/historique/", views.pompiste_historique, name="pompiste_historique"),
+    path("gerant/", views.gerant_accueil, name="gerant_accueil"),
 ]

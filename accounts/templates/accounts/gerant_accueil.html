@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StationTrack — Tableau de bord</title>
+{% load formatage %}
+<style>
+:root{
+  --bg:#080c11;--panel:#121820;--panel2:#171f29;--line:#293441;
+  --blue:#1769ff;--orange:#ff7900;--green:#1fae63;--red:#ff5470;--yellow:#ffbd4a;
+  --text:#f5f7fa;--muted:#8d99a9;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.app{display:flex;min-height:100vh}
+
+/* ---------- Sidebar ---------- */
+.side{
+  width:245px;position:fixed;inset:0 auto 0 0;background:linear-gradient(180deg,#080d12,#111820);
+  border-right:1px solid #202a35;padding:18px 13px;overflow:auto;z-index:40;transition:transform .25s ease
+}
+.brand{display:flex;gap:10px;align-items:center;padding:2px 8px 20px}
+.brandlogo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--blue),#0c48bd);display:grid;place-items:center;font-size:20px}
+.brand b{font-size:14px;letter-spacing:-.01em}
+.brand b .accent{color:var(--orange)}
+.brand small{display:block;color:var(--muted);font-size:9px;margin-top:3px}
+.stationbox{border:1px solid #2b3643;background:#151d26;border-radius:10px;padding:11px;margin-bottom:13px}
+.stationbox label{font-size:8px;color:#748093;text-transform:uppercase}
+.stationbox strong{display:block;margin-top:5px;font-size:12px}
+.nav{display:grid;gap:4px}
+.nav button{border:0;background:transparent;color:#cbd3dd;text-align:left;border-radius:9px;padding:11px 12px;font-size:12px;font-weight:600;display:flex;gap:10px;align-items:center;cursor:pointer;width:100%;font-family:inherit}
+.nav button:hover{background:#ffffff08}
+.nav button.active{background:linear-gradient(90deg,var(--blue),#0c55d8);color:white}
+.nav i{font-style:normal;width:19px;text-align:center}
+.sep{font-size:8px;color:#5e6a7b;text-transform:uppercase;letter-spacing:1px;padding:14px 11px 6px}
+.profile{margin-top:18px;background:#161e27;border:1px solid #293440;border-radius:11px;padding:11px}
+.avatar{width:34px;height:34px;border-radius:50%;background:#e8edf4;color:#111;display:grid;place-items:center;font-weight:800;font-size:12px}
+.pro{display:flex;gap:9px;align-items:center}
+.profile small{color:var(--muted);font-size:9px;display:block}
+.online{color:var(--green);font-size:9px;margin-top:8px}
+
+/* ---------- Main ---------- */
+.main{margin-left:245px;width:calc(100% - 245px)}
+.top{height:60px;border-bottom:1px solid #222c37;background:#0b1016;display:flex;align-items:center;padding:0 20px;gap:14px;position:sticky;top:0;z-index:20}
+.hamburger{display:none;border:1px solid #2a3541;background:#121921;color:#dce4ec;border-radius:9px;padding:9px 11px;cursor:pointer}
+.fill{flex:1}
+.logoutbtn{border:1px solid #2a3541;background:#121921;color:#dce4ec;border-radius:9px;padding:9px 13px;font-size:11px;text-decoration:none;font-weight:700}
+.content{padding:22px;max-width:1400px;margin:auto}
+.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap}
+.head h1{font-size:21px;margin:0 0 5px}
+.head p{font-size:11px;color:var(--muted);margin:0}
+.date{border:1px solid #2a3541;background:#141b23;padding:9px 12px;border-radius:9px;font-size:10px;white-space:nowrap}
+
+/* ---------- Grid / cards ---------- */
+.view{display:none}
+.view.active{display:block}
+.grid{display:grid;gap:13px}
+.kpis{grid-template-columns:repeat(5,1fr)}
+.card{background:linear-gradient(145deg,#151c24,#11171e);border:1px solid #293440;border-radius:11px;padding:16px;box-shadow:0 12px 35px #0005}
+.kpi{min-height:100px}
+.label{color:#8793a3;font-size:9px;text-transform:uppercase;font-weight:800;letter-spacing:.3px}
+.val{font-size:21px;font-weight:800;margin:9px 0 5px}
+.hint{font-size:9.5px;color:var(--muted)}
+.hint.blue{color:var(--blue)}
+.hint.orange{color:var(--orange)}
+.hint.green{color:var(--green)}
+.cols3{grid-template-columns:1.3fr 1fr 1fr}
+.card h3{font-size:13px;margin:0 0 14px}
+
+.alert{padding:10px;border:1px solid #303946;border-radius:8px;margin-bottom:8px;background:#151c24;font-size:10.5px}
+.alert strong{display:block;font-size:12px}
+.alert small{display:block;color:var(--muted);margin-top:4px}
+.alert.red{border-left:3px solid var(--red)}
+.alert.orange{border-left:3px solid var(--orange)}
+.alert.green{border-left:3px solid var(--green)}
+.alert.muted{border-left:3px solid #3a434e}
+
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.action{border:1px solid #2a3541;background:#141b23;color:#eef2f6;border-radius:8px;padding:13px 6px;text-align:center;font-size:9.5px;cursor:pointer;font-family:inherit;text-decoration:none;display:block}
+.action:hover{border-color:var(--blue)}
+.action b{display:block;font-size:16px;margin-bottom:5px}
+
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{color:#778395;text-transform:uppercase;font-size:8.5px;text-align:left;padding:9px;border-bottom:1px solid #293440}
+td{padding:10px 9px;border-bottom:1px solid #202a34}
+.status{font-size:8.5px;padding:4px 8px;border-radius:99px;background:#103b2b;color:#52dfa0;font-weight:700}
+.status.orange{background:#402813;color:#ffb15c}
+.status.muted{background:#20272f;color:var(--muted)}
+
+.soon-box{padding:70px 20px;text-align:center}
+.soon-box .icon{font-size:38px;margin-bottom:14px;opacity:.6}
+.soon-box h2{font-size:17px;margin:0 0 8px}
+.soon-box p{color:var(--muted);font-size:12px;margin:0}
+
+.backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:30}
+
+@media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.cols3{grid-template-columns:1fr}}
+@media(max-width:900px){
+  .side{transform:translateX(-100%)}
+  .side.open{transform:translateX(0)}
+  .main{margin-left:0;width:100%}
+  .hamburger{display:block}
+  .backdrop.open{display:block}
+  .kpis{grid-template-columns:1fr 1fr}
+  .content{padding:14px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="backdrop" id="backdrop" onclick="closeSidebar()"></div>
+
+  <aside class="side" id="sidebar">
+    <div class="brand">
+      <div class="brandlogo">⛽</div>
+      <div><b>Station<span class="accent">Track</span></b><small>MANAGEMENT PLATFORM</small></div>
+    </div>
+    <div class="stationbox">
+      <label>Station connectée</label>
+      <strong>{{ employee.station.nom }}</strong>
+    </div>
+    <nav class="nav">
+      <button class="active" data-v="dash"><i>⌂</i><span>Tableau de bord</span></button>
+      <button data-v="soon" data-label="Ventes &amp; Transactions"><i>▤</i><span>Ventes &amp; Transactions</span></button>
+      <button data-v="soon" data-label="Pompes"><i>⛽</i><span>Pompes</span></button>
+      <button data-v="soon" data-label="Stocks carburant"><i>▣</i><span>Stocks carburant</span></button>
+      <button data-v="soon" data-label="Quarts &amp; Caisses"><i>◷</i><span>Quarts &amp; Caisses</span></button>
+      <button data-v="soon" data-label="Personnel"><i>♙</i><span>Personnel</span></button>
+      <button data-v="soon" data-label="Dépenses"><i>₣</i><span>Dépenses</span></button>
+      <button data-v="soon" data-label="Maintenance"><i>🔧</i><span>Maintenance</span></button>
+      <div class="sep">Pilotage</div>
+      <button data-v="soon" data-label="Rapports station"><i>▥</i><span>Rapports station</span></button>
+      <button data-v="soon" data-label="Paramètres"><i>⚙</i><span>Paramètres</span></button>
+      <button data-v="soon" data-label="Support"><i>?</i><span>Support</span></button>
+    </nav>
+    <div class="profile">
+      <div class="pro">
+        <div class="avatar">{{ employee.nom_complet|slice:":2"|upper }}</div>
+        <div><b style="font-size:10px">{{ employee.nom_complet }}</b><small>{{ employee.get_role_display }}</small></div>
+      </div>
+      <div class="online">● En ligne</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <button class="hamburger" onclick="openSidebar()">☰</button>
+      <div class="fill"></div>
+      <a class="logoutbtn" href="{% url 'accounts:logout' %}">Déconnexion</a>
+    </header>
+
+    <div class="content">
+
+      <section id="dash" class="view active">
+        <div class="head">
+          <div>
+            <h1>Bonjour, {{ employee.nom_complet }} 👋</h1>
+            <p>Gestion opérationnelle de <b>{{ employee.station.nom }}</b></p>
+          </div>
+          <div class="date">📅 {{ aujourdhui|date:"l d F Y" }}</div>
+        </div>
+
+        <div class="grid kpis">
+          <div class="card kpi">
+            <div class="label">CA aujourd'hui</div>
+            <div class="val">{{ ca_jour|fcfa }}</div>
+            <div class="hint">Total encaissé déclaré</div>
+          </div>
+          <div class="card kpi">
+            <div class="label">Pompistes station</div>
+            <div class="val">{{ nb_pompistes }}</div>
+            <div class="hint">Actifs sur cette station</div>
+          </div>
+          <div class="card kpi">
+            <div class="label">Pas démarré</div>
+            <div class="val" style="color:var(--muted)">{{ nb_pas_demarre }}</div>
+            <div class="hint">N'ont pas encore ouvert leur caisse</div>
+          </div>
+          <div class="card kpi">
+            <div class="label">En cours</div>
+            <div class="val" style="color:var(--orange)">{{ nb_en_cours }}</div>
+            <div class="hint orange">Caisse ouverte aujourd'hui</div>
+          </div>
+          <div class="card kpi">
+            <div class="label">Clôturés</div>
+            <div class="val" style="color:var(--green)">{{ nb_cloture }}</div>
+            <div class="hint green">Journée terminée</div>
+          </div>
+        </div>
+
+        <div class="grid cols3" style="margin-top:13px">
+          <div class="card">
+            <h3>Pompistes de la station</h3>
+            <table>
+              <thead><tr><th>Employé</th><th>Statut</th><th>Encaissé</th></tr></thead>
+              <tbody>
+                {% for ligne in lignes %}
+                <tr>
+                  <td>{{ ligne.pompiste.nom_complet }}</td>
+                  <td>
+                    {% if ligne.statut == "pas_demarre" %}<span class="status muted">Pas démarré</span>
+                    {% elif ligne.statut == "en_cours" %}<span class="status orange">En cours</span>
+                    {% else %}<span class="status">Clôturé</span>{% endif %}
+                  </td>
+                  <td>{% if ligne.session and ligne.session.montant_encaisse %}{{ ligne.session.montant_encaisse|fcfa }}{% else %}—{% endif %}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" style="color:var(--muted);text-align:center;">Aucun pompiste actif.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <h3>Alertes station</h3>
+            {% if nb_pas_demarre > 0 %}
+              <div class="alert orange">⚠️ <strong>{{ nb_pas_demarre }} pompiste(s) sans caisse ouverte</strong><small>Aucune activité enregistrée aujourd'hui</small></div>
+            {% endif %}
+            {% if nb_cloture == nb_pompistes and nb_pompistes > 0 %}
+              <div class="alert green">✓ <strong>Toutes les caisses sont clôturées</strong><small>Journée terminée pour cette station</small></div>
+            {% endif %}
+            {% if nb_pas_demarre == 0 and nb_cloture < nb_pompistes %}
+              <div class="alert muted">● <strong>Journée en cours</strong><small>Tous les pompistes ont démarré leur caisse</small></div>
+            {% endif %}
+          </div>
+
+          <div class="card">
+            <h3>Actions rapides</h3>
+            <div class="actions">
+              <a class="action" href="#" onclick="showSoon(event, 'Jauge du matin')"><b>🛢️</b>Jauge du matin</a>
+              <a class="action" href="#" onclick="showSoon(event, 'Dépense de caisse')"><b>₣</b>Dépense</a>
+              {% if employee.role == "gerant" %}
+              <a class="action" href="#" onclick="showSoon(event, 'Dépôt bancaire')"><b>🏦</b>Dépôt bancaire</a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="soon" class="view">
+        <div class="soon-box">
+          <div class="icon">🚧</div>
+          <h2 id="soonTitle">Fonctionnalité à venir</h2>
+          <p>Cette section n'est pas encore disponible dans StationTrack. Revenez bientôt !</p>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+const buttons = document.querySelectorAll('.nav button');
+const views = document.querySelectorAll('.view');
+const sidebar = document.getElementById('sidebar');
+const backdrop = document.getElementById('backdrop');
+
+function go(id, label) {
+  buttons.forEach(b => b.classList.toggle('active', b.dataset.v === id && (id !== 'soon' || b.dataset.label === label)));
+  views.forEach(v => v.classList.toggle('active', v.id === id));
+  if (id === 'soon' && label) {
+    document.getElementById('soonTitle').textContent = label;
+  }
+  window.scrollTo({top: 0, behavior: 'smooth'});
+  closeSidebar();
+}
+
+function showSoon(e, label) {
+  e.preventDefault();
+  go('soon', label);
+}
+
+function openSidebar() { sidebar.classList.add('open'); backdrop.classList.add('open'); }
+function closeSidebar() { sidebar.classList.remove('open'); backdrop.classList.remove('open'); }
+
+buttons.forEach(b => b.onclick = () => go(b.dataset.v, b.dataset.label));
+</script>
+</body>
+</html>
