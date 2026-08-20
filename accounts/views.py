@@ -72,8 +72,16 @@ def employee_login(request):
             )
 
             if employee is not None:
-                request.session["employee_id"] = employee.pk
-                return _url_apres_connexion(employee)
-            erreur = "Identifiants invalides."
+                if not hasattr(request, "societe"):
+                    # Ne devrait jamais arriver : TenantMiddleware retourne deja une 404
+                    # avant d'atteindre cette vue si aucune societe n'est resolue. Garde
+                    # defensive quand meme (meme discipline que require_employee_login).
+                    erreur = "Erreur de configuration. Réessayez plus tard."
+                else:
+                    request.session["employee_id"] = employee.pk
+                    request.session["employee_societe_slug"] = request.societe.sous_domaine
+                    return _url_apres_connexion(employee)
+            if erreur is None:
+                erreur = "Identifiants invalides."
 
     return render(request, "accounts/login.html", {"erreur": erreur})
