@@ -1,3 +1,5 @@
+from django.db.models import Q
+
 from stations.constants import GASOIL, ESSENCE
 
 
@@ -38,3 +40,20 @@ def litres_vendus_par_carburant(pistolets_ids, releves_queryset, date_debut, dat
         resultats[carburant] = resultats.get(carburant, 0) + litres
 
     return resultats
+
+
+def pistolets_affectes_a(employee):
+    """Retourne le queryset des Pistolet affectes a un employe, par union des deux
+    sources d'affectation possibles : Pompe.employee_affecte (pompe entiere) et
+    Face.employee_affecte (face seule). Un employe peut cumuler plusieurs pompes
+    entieres et/ou plusieurs faces individuelles (regle metier deja validee).
+
+    Le .distinct() protege contre un pistolet atteignable par les deux chemins a la
+    fois — ne devrait jamais arriver vu la regle d'exclusivite deja appliquee dans
+    Pompe.clean()/Face.clean(), mais protection peu couteuse.
+    """
+    from stations.models import Pistolet
+
+    return Pistolet.objects.filter(
+        Q(face__pompe__employee_affecte=employee) | Q(face__employee_affecte=employee)
+    ).distinct()
