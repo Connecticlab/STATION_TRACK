@@ -355,3 +355,76 @@ def gerant_accueil(request):
         "aujourdhui": aujourdhui,
     }
     return render(request, "accounts/gerant_accueil.html", contexte)
+
+
+@require_employee_login(roles=[Employee.GERANT, Employee.CHEF_DE_PISTE])
+def gerant_jauge(request):
+    """Saisie de la jauge du matin, par carburant. Le formulaire n'affiche QUE les
+    carburants pour lesquels la station possede au moins une Cuve — reflete la realite
+    physique reelle de chaque station, pas une liste theorique figee (ex: une station
+    sans cuve d'essence ne doit jamais voir de champ Essence)."""
+    from django.utils import timezone
+
+    from cuves.models import Cuve, Jauge
+
+    employee = request.employee
+    station = employee.station
+
+    carburants_station = list(
+        Cuve.objects.filter(station=station).values_list("carburant", flat=True).distinct()
+    )
+
+    aujourdhui = timezone.localtime(timezone.now()).date()
+    erreurs = []
+    succes = False
+
+    if request.method == "POST":
+        maintenant = timezone.now()
+        for carburant in carburants_station:
+            champ = f"quantite_{carburant}"
+            valeur_brute = request.POST.get(champ, "").strip()
+
+            if not valeur_brute:
+                erreurs.append(f"Quantité manquante pour {carburant}.")
+                continue
+
+            try:
+                valeur = float(valeur_brute)
+            except ValueError:
+                erreurs.append(f"Quantité invalide pour {carburant}.")
+                continue
+
+            if Jauge.objects.filter(station=station, carburant=carburant, date_jauge=aujourdhui).exists():
+                erreurs.append(f"La jauge {carburant} d'aujourd'hui a déjà été saisie.")
+                continue
+
+            Jauge.objects.create(
+                station=station,
+                carburant=carburant,
+                quantite=valeur,
+                date_jauge=aujourdhui,
+                date_mesure=maintenant,
+            )
+
+        if not erreurs:
+            succes = True
+
+    jauges_du_jour = {
+        j.carburant: j
+        for j in Jauge.objects.filter(station=station, date_jauge=aujourdhui)
+    }
+
+    lignes_carburant = [
+        {"carburant": carburant, "jauge_existante": jauges_du_jour.get(carburant)}
+        for carburant in carburants_station
+    ]
+    reste_a_saisir = any(l["jauge_existante"] is None for l in lignes_carburant)
+
+    contexte = {
+        "employee": employee,
+        "lignes_carburant": lignes_carburant,
+        "reste_a_saisir": reste_a_saisir,
+        "erreurs": erreurs,
+        "succes": succes,
+    }
+    return render(request, "accounts/gerant_jauge.html", contexte)

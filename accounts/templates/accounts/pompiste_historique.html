@@ -25,7 +25,10 @@ body{padding:16px;padding-bottom:48px}
 .item .montant{font-size:13px;color:var(--muted)}
 .item .arrow{color:var(--blue);font-size:18px}
 .empty{color:var(--muted);text-align:center;padding:40px 20px;font-size:13.5px}
-.back{display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:13px;text-decoration:none}
+.back{
+  display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:14px;font-weight:700;
+  text-decoration:none;height:52px;line-height:52px;border:1px solid var(--line);border-radius:12px
+}
 </style>
 </head>
 <body>
@@ -46,7 +49,7 @@ body{padding:16px;padding-bottom:48px}
     <div class="empty">Aucune caisse clôturée pour l'instant.</div>
   {% endfor %}
 
-  <a class="back" href="{% url 'accounts:pompiste_accueil' %}">← Retour</a>
+  <a class="back" href="{% url 'accounts:pompiste_accueil' %}">Retour</a>
 </div>
 </body>
 </html>
