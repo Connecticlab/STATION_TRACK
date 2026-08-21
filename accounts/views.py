@@ -484,3 +484,62 @@ def gerant_depense(request):
         "depenses_du_jour": depenses_du_jour,
     }
     return render(request, "accounts/gerant_depense.html", contexte)
+
+
+@require_employee_login(roles=[Employee.GERANT])
+def gerant_depot_bancaire(request):
+    """Enregistrement d'un depot bancaire. RESTREINT AU GERANT UNIQUEMENT — le Chef de
+    piste ne peut jamais faire cette tache (regle metier stricte deja validee). Depot
+    volontairement independant du theorique : ne jamais traiter comme une anomalie
+    automatique (le Gerant peut garder une partie de l'encaissement pour urgences)."""
+    from django.utils import timezone
+
+    from caisse.models import DepotBancaire
+
+    employee = request.employee
+    station = employee.station
+
+    erreurs = []
+    succes = False
+
+    if request.method == "POST":
+        montant_brut = request.POST.get("montant", "").strip()
+        banque = request.POST.get("banque", "").strip()
+        reference = request.POST.get("reference", "").strip()
+
+        if not montant_brut:
+            erreurs.append("Le montant est obligatoire.")
+        else:
+            try:
+                montant = float(montant_brut)
+                if montant <= 0:
+                    erreurs.append("Le montant doit être supérieur à zéro.")
+            except ValueError:
+                erreurs.append("Montant invalide.")
+                montant = None
+
+        if not banque:
+            erreurs.append("Le nom de la banque/agence est obligatoire.")
+
+        if not erreurs:
+            DepotBancaire.objects.create(
+                station=station,
+                employee=employee,
+                montant=montant,
+                banque=banque,
+                reference=reference,
+                date_heure=timezone.now(),
+            )
+            succes = True
+
+    depots_du_jour = DepotBancaire.objects.filter(
+        station=station, date_heure__date=timezone.localtime(timezone.now()).date()
+    ).order_by("-date_heure")
+
+    contexte = {
+        "employee": employee,
+        "erreurs": erreurs,
+        "succes": succes,
+        "depots_du_jour": depots_du_jour,
+    }
+    return render(request, "accounts/gerant_depot_bancaire.html", contexte)

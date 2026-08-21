@@ -232,7 +232,7 @@ td{padding:10px 9px;border-bottom:1px solid #202a34}
               <a class="action" href="{% url 'accounts:gerant_jauge' %}"><b>🛢️</b>Jauge du matin</a>
               <a class="action" href="{% url 'accounts:gerant_depense' %}"><b>₣</b>Dépense</a>
               {% if employee.role == "gerant" %}
-              <a class="action" href="#" onclick="showSoon(event, 'Dépôt bancaire')"><b>🏦</b>Dépôt bancaire</a>
+              <a class="action" href="{% url 'accounts:gerant_depot_bancaire' %}"><b>🏦</b>Dépôt bancaire</a>
               {% endif %}
             </div>
           </div>

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StationTrack — Dépôt bancaire</title>
+{% load formatage %}
+<style>
+:root{
+  --black:#070b10;--panel:#121a23;--line:#283542;
+  --blue:#1769ff;--green:#1fae63;--white:#f6f8fb;--muted:#8b98a8;
+  --danger:#ff5470;--danger-bg:rgba(255,84,112,.1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--black);color:var(--white)}
+body{padding:16px;padding-bottom:48px}
+.wrap{max-width:560px;margin:0 auto}
+.header{margin-bottom:18px}
+.header h1{font-size:19px;margin:0}
+.notice{font-size:11px;color:var(--muted);margin-bottom:16px;padding:10px 12px;border:1px dashed var(--line);border-radius:8px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px}
+.field input{
+  width:100%;height:50px;background:#0c141c;border:1px solid var(--line);border-radius:10px;
+  color:white;font-size:16px;padding:0 14px;font-family:inherit
+}
+.field input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(31,174,99,.16)}
+.big-btn{
+  width:100%;height:56px;border:0;border-radius:14px;background:var(--green);color:white;
+  font-weight:800;font-size:15px;cursor:pointer;font-family:inherit
+}
+.error-banner{
+  background:var(--danger-bg);border:1px solid rgba(255,84,112,.32);color:#ffb3c0;
+  border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px
+}
+.error-banner ul{margin:6px 0 0;padding-left:18px}
+.success-banner{
+  background:rgba(31,174,99,.1);border:1px solid rgba(31,174,99,.32);color:#7fe0ac;
+  border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px;text-align:center
+}
+.section-title{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:20px 0 10px}
+.depot-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.depot-row:last-child{border-bottom:none}
+.depot-row .banque{font-size:13px}
+.depot-row .heure{font-size:10.5px;color:var(--muted);margin-top:2px}
+.depot-row .montant{font-weight:700;font-size:13.5px;color:var(--green)}
+.empty{color:var(--muted);text-align:center;padding:20px;font-size:13px}
+.back{
+  display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:14px;font-weight:700;
+  text-decoration:none;height:52px;line-height:52px;border:1px solid var(--line);border-radius:12px
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header"><h1>Dépôt bancaire</h1></div>
+  <div class="notice">Le dépôt est indépendant du montant théorique — vous pouvez conserver une partie de l'encaissement pour les urgences, cela n'est jamais signalé comme une anomalie.</div>
+
+  {% if succes %}
+    <div class="success-banner">✓ Dépôt enregistré avec succès.</div>
+  {% endif %}
+
+  {% if erreurs %}
+  <div class="error-banner">
+    <ul>{% for e in erreurs %}<li>{{ e }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="card">
+      <div class="field">
+        <label for="montant">Montant (FCFA)</label>
+        <input type="number" step="0.01" inputmode="decimal" id="montant" name="montant" required>
+      </div>
+      <div class="field">
+        <label for="banque">Banque / Agence</label>
+        <input type="text" id="banque" name="banque" placeholder="Ex : CBAO Kaolack" required>
+      </div>
+      <div class="field">
+        <label for="reference">Référence (optionnel)</label>
+        <input type="text" id="reference" name="reference" placeholder="N° de reçu">
+      </div>
+    </div>
+    <button type="submit" class="big-btn">ENREGISTRER LE DÉPÔT</button>
+  </form>
+
+  <div class="section-title">Dépôts du jour</div>
+  <div class="card">
+    {% for depot in depots_du_jour %}
+      <div class="depot-row">
+        <div>
+          <div class="banque">{{ depot.banque }}</div>
+          <div class="heure">{{ depot.date_heure|date:"H:i" }}{% if depot.reference %} · Réf. {{ depot.reference }}{% endif %}</div>
+        </div>
+        <div class="montant">{{ depot.montant|fcfa }}</div>
+      </div>
+    {% empty %}
+      <div class="empty">Aucun dépôt enregistré aujourd'hui.</div>
+    {% endfor %}
+  </div>
+
+  <a class="back" href="{% url 'accounts:gerant_accueil' %}">Retour</a>
+</div>
+</body>
+</html>
