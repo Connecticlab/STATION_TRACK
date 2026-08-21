@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StationTrack — Dépense de caisse</title>
+{% load formatage %}
+<style>
+:root{
+  --black:#070b10;--panel:#121a23;--line:#283542;
+  --blue:#1769ff;--orange:#ff7900;--white:#f6f8fb;--muted:#8b98a8;
+  --danger:#ff5470;--danger-bg:rgba(255,84,112,.1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--black);color:var(--white)}
+body{padding:16px;padding-bottom:48px}
+.wrap{max-width:560px;margin:0 auto}
+.header{margin-bottom:18px}
+.header h1{font-size:19px;margin:0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px}
+.field input,.field textarea{
+  width:100%;background:#0c141c;border:1px solid var(--line);border-radius:10px;
+  color:white;font-size:16px;padding:13px 14px;font-family:inherit
+}
+.field input{height:50px}
+.field textarea{min-height:90px;resize:vertical}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(255,121,0,.16)}
+.big-btn{
+  width:100%;height:56px;border:0;border-radius:14px;background:var(--orange);color:white;
+  font-weight:800;font-size:15px;cursor:pointer;font-family:inherit
+}
+.error-banner{
+  background:var(--danger-bg);border:1px solid rgba(255,84,112,.32);color:#ffb3c0;
+  border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px
+}
+.error-banner ul{margin:6px 0 0;padding-left:18px}
+.success-banner{
+  background:rgba(31,174,99,.1);border:1px solid rgba(31,174,99,.32);color:#7fe0ac;
+  border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px;text-align:center
+}
+.section-title{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:20px 0 10px}
+.depense-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.depense-row:last-child{border-bottom:none}
+.depense-row .motif{font-size:13px}
+.depense-row .heure{font-size:10.5px;color:var(--muted);margin-top:2px}
+.depense-row .montant{font-weight:700;font-size:13.5px}
+.empty{color:var(--muted);text-align:center;padding:20px;font-size:13px}
+.back{
+  display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:14px;font-weight:700;
+  text-decoration:none;height:52px;line-height:52px;border:1px solid var(--line);border-radius:12px
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header"><h1>Dépense de caisse</h1></div>
+
+  {% if succes %}
+    <div class="success-banner">✓ Dépense enregistrée avec succès.</div>
+  {% endif %}
+
+  {% if erreurs %}
+  <div class="error-banner">
+    <ul>{% for e in erreurs %}<li>{{ e }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+    <div class="card">
+      <div class="field">
+        <label for="montant">Montant (FCFA)</label>
+        <input type="number" step="0.01" inputmode="decimal" id="montant" name="montant" required>
+      </div>
+      <div class="field">
+        <label for="motif">Motif</label>
+        <textarea id="motif" name="motif" placeholder="Ex : Achat pièce détachée, pourboire chauffeur..." required></textarea>
+      </div>
+    </div>
+    <button type="submit" class="big-btn">ENREGISTRER LA DÉPENSE</button>
+  </form>
+
+  <div class="section-title">Dépenses du jour</div>
+  <div class="card">
+    {% for depense in depenses_du_jour %}
+      <div class="depense-row">
+        <div>
+          <div class="motif">{{ depense.motif }}</div>
+          <div class="heure">{{ depense.employee.nom_complet }} · {{ depense.date_heure|date:"H:i" }}</div>
+        </div>
+        <div class="montant">{{ depense.montant|fcfa }}</div>
+      </div>
+    {% empty %}
+      <div class="empty">Aucune dépense enregistrée aujourd'hui.</div>
+    {% endfor %}
+  </div>
+
+  <a class="back" href="{% url 'accounts:gerant_accueil' %}">Retour</a>
+</div>
+</body>
+</html>

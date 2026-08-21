@@ -428,3 +428,59 @@ def gerant_jauge(request):
         "succes": succes,
     }
     return render(request, "accounts/gerant_jauge.html", contexte)
+
+
+@require_employee_login(roles=[Employee.GERANT, Employee.CHEF_DE_PISTE])
+def gerant_depense(request):
+    """Enregistrement d'une depense de caisse. Accessible aux DEUX roles (Gerant ET
+    Chef de piste) — regle metier validee par l'entretien terrain, distincte du depot
+    bancaire qui lui est restreint au Gerant uniquement."""
+    from django.utils import timezone
+
+    from caisse.models import DepenseCaisse
+
+    employee = request.employee
+    station = employee.station
+
+    erreurs = []
+    succes = False
+
+    if request.method == "POST":
+        montant_brut = request.POST.get("montant", "").strip()
+        motif = request.POST.get("motif", "").strip()
+
+        if not montant_brut:
+            erreurs.append("Le montant est obligatoire.")
+        else:
+            try:
+                montant = float(montant_brut)
+                if montant <= 0:
+                    erreurs.append("Le montant doit être supérieur à zéro.")
+            except ValueError:
+                erreurs.append("Montant invalide.")
+                montant = None
+
+        if not motif:
+            erreurs.append("Le motif est obligatoire.")
+
+        if not erreurs:
+            DepenseCaisse.objects.create(
+                station=station,
+                employee=employee,
+                montant=montant,
+                motif=motif,
+                date_heure=timezone.now(),
+            )
+            succes = True
+
+    depenses_du_jour = DepenseCaisse.objects.filter(
+        station=station, date_heure__date=timezone.localtime(timezone.now()).date()
+    ).order_by("-date_heure")
+
+    contexte = {
+        "employee": employee,
+        "erreurs": erreurs,
+        "succes": succes,
+        "depenses_du_jour": depenses_du_jour,
+    }
+    return render(request, "accounts/gerant_depense.html", contexte)
