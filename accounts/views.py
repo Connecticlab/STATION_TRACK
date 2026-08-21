@@ -543,3 +543,114 @@ def gerant_depot_bancaire(request):
         "depots_du_jour": depots_du_jour,
     }
     return render(request, "accounts/gerant_depot_bancaire.html", contexte)
+
+
+@require_employee_login(roles=[Employee.GERANT, Employee.CHEF_DE_PISTE])
+def gerant_releve_pompiste(request, pompiste_id):
+    """Relevé indépendant du Gérant/Chef de piste pour UN pompiste précis (double
+    vérification croisée, jamais confiance aveugle envers le pompiste). Même logique de
+    formulaire groupé qu'en cote Pompiste, mais avec capture explicite de l'IntegrityError
+    (contrainte d'exclusivité sur ReleveIndexGerant) pour un message clair plutot qu'une
+    erreur serveur brute."""
+    from django.db import IntegrityError, transaction
+    from django.shortcuts import get_object_or_404
+    from django.utils import timezone
+
+    from caisse.models import ReleveIndexGerant, SessionCaisse
+    from stations.services import pistolets_affectes_a
+
+    employee = request.employee
+    pompiste = get_object_or_404(Employee, pk=pompiste_id, role=Employee.POMPISTE, station=employee.station)
+
+    pistolets = pistolets_affectes_a(pompiste)
+    structure = _structurer_pistolets_par_pompe_face(pistolets)
+
+    aujourdhui = timezone.localtime(timezone.now()).date()
+    session_pompiste = SessionCaisse.objects.filter(employee=pompiste, date=aujourdhui).first()
+
+    a_depart_gerant = ReleveIndexGerant.objects.filter(
+        employee_pompiste=pompiste, date_heure__date=aujourdhui, type_releve=ReleveIndexGerant.DEPART
+    ).exists()
+    a_fin_gerant = ReleveIndexGerant.objects.filter(
+        employee_pompiste=pompiste, date_heure__date=aujourdhui, type_releve=ReleveIndexGerant.FIN
+    ).exists()
+
+    erreurs = []
+
+    if request.method == "POST" and not a_fin_gerant:
+        type_releve = ReleveIndexGerant.DEPART if not a_depart_gerant else ReleveIndexGerant.FIN
+        valeurs_validees = {}
+
+        # Passe 1 : validation complete avant toute creation.
+        for pistolet in pistolets:
+            champ = f"index_{pistolet.pk}"
+            valeur_brute = request.POST.get(champ, "").strip()
+
+            if not valeur_brute:
+                erreurs.append(f"Index manquant pour {pistolet}.")
+                continue
+
+            try:
+                valeur = float(valeur_brute)
+            except ValueError:
+                erreurs.append(f"Index invalide pour {pistolet}.")
+                continue
+
+            if type_releve == ReleveIndexGerant.FIN:
+                releve_depart = ReleveIndexGerant.objects.filter(
+                    employee_pompiste=pompiste, pistolet=pistolet, type_releve=ReleveIndexGerant.DEPART
+                ).first()
+                if releve_depart and valeur < float(releve_depart.valeur_index):
+                    erreurs.append(
+                        f"L'index de fin de {pistolet} ne peut pas être inférieur à l'index de départ."
+                    )
+                    continue
+
+            valeurs_validees[pistolet.pk] = valeur
+
+        # Passe 2 : creation groupee, avec capture explicite de l'IntegrityError
+        # (contrainte d'exclusivite) — jamais une erreur serveur brute.
+        if not erreurs:
+            maintenant = timezone.now()
+            try:
+                with transaction.atomic():
+                    for pistolet in pistolets:
+                        ReleveIndexGerant.objects.create(
+                            employee=employee,
+                            employee_pompiste=pompiste,
+                            pistolet=pistolet,
+                            type_releve=type_releve,
+                            valeur_index=valeurs_validees[pistolet.pk],
+                            date_heure=maintenant,
+                        )
+            except IntegrityError:
+                releve_existant = ReleveIndexGerant.objects.filter(
+                    employee_pompiste=pompiste, type_releve=type_releve, date_heure__date=aujourdhui
+                ).select_related("employee").first()
+                if releve_existant:
+                    erreurs.append(
+                        f"Ce relevé a déjà été saisi par {releve_existant.employee.nom_complet}, "
+                        f"à {timezone.localtime(releve_existant.date_heure):%H:%M}."
+                    )
+                else:
+                    erreurs.append("Ce relevé a déjà été saisi par un autre utilisateur.")
+            else:
+                return redirect("accounts:gerant_releve_pompiste", pompiste_id=pompiste.pk)
+
+    peut_confronter = (
+        a_fin_gerant
+        and session_pompiste is not None
+        and session_pompiste.montant_encaisse is not None
+    )
+
+    contexte = {
+        "employee": employee,
+        "pompiste": pompiste,
+        "structure": structure,
+        "a_depart_gerant": a_depart_gerant,
+        "a_fin_gerant": a_fin_gerant,
+        "session_pompiste": session_pompiste,
+        "peut_confronter": peut_confronter,
+        "erreurs": erreurs,
+    }
+    return render(request, "accounts/gerant_releve_pompiste.html", contexte)

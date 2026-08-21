@@ -15,4 +15,5 @@ urlpatterns = [
     path("gerant/jauge/", views.gerant_jauge, name="gerant_jauge"),
     path("gerant/depense/", views.gerant_depense, name="gerant_depense"),
     path("gerant/depot-bancaire/", views.gerant_depot_bancaire, name="gerant_depot_bancaire"),
+    path("gerant/releve/<int:pompiste_id>/", views.gerant_releve_pompiste, name="gerant_releve_pompiste"),
 ]

@@ -197,7 +197,7 @@ td{padding:10px 9px;border-bottom:1px solid #202a34}
               <thead><tr><th>Employé</th><th>Statut</th><th>Encaissé</th></tr></thead>
               <tbody>
                 {% for ligne in lignes %}
-                <tr>
+                <tr onclick="window.location.href='{% url 'accounts:gerant_releve_pompiste' ligne.pompiste.pk %}'" style="cursor:pointer;">
                   <td>{{ ligne.pompiste.nom_complet }}</td>
                   <td>
                     {% if ligne.statut == "pas_demarre" %}<span class="status muted">Pas démarré</span>
