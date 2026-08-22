@@ -195,3 +195,35 @@ def montant_conserve_caisse(station, date_debut, date_fin):
         "depenses_caisse": depenses_caisse,
         "montant_conserve": montant_conserve,
     }
+
+
+def calculer_apercu_theorique(station, pistolets_ids, releves_queryset, date_debut, date_fin):
+    """Calcule un APERCU du theorique (litres vendus par carburant, montant theorique
+    par carburant et total), a partir d'UN SEUL relevé (pompiste OU Gerant, au choix de
+    l'appelant) — fonction pure, ne sauvegarde rien, distincte de confronter_session_caisse
+    qui elle utilise toujours les relevés du Gerant comme reference officielle.
+
+    Sert uniquement a AFFICHER le calcul theorique a chaque role sur son propre ecran
+    intermediaire (transparence : le pompiste/Gerant doit pouvoir voir et verifier ce
+    calcul avant de confirmer sa propre saisie), jamais a decider MANQUANT/SURPLUS
+    officiellement (ca reste le role de confronter_session_caisse)."""
+    litres = litres_vendus_par_carburant(pistolets_ids, releves_queryset, date_debut, date_fin)
+
+    montant_gasoil = 0
+    montant_essence = 0
+    for carburant, quantite in litres.items():
+        prix = PrixCarburant.objects.prix_en_vigueur(station, carburant, date_fin)
+        if prix is not None:
+            montant = quantite * prix.prix_au_litre
+            if carburant == GASOIL:
+                montant_gasoil = montant
+            elif carburant == ESSENCE:
+                montant_essence = montant
+
+    return {
+        "litres_gasoil": litres.get(GASOIL, 0),
+        "litres_essence": litres.get(ESSENCE, 0),
+        "montant_theorique_gasoil": montant_gasoil,
+        "montant_theorique_essence": montant_essence,
+        "montant_theorique_total": montant_gasoil + montant_essence,
+    }

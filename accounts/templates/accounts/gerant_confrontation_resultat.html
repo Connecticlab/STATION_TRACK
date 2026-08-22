@@ -74,8 +74,21 @@ body{padding:16px;padding-bottom:48px}
   {% endif %}
 
   <div class="card">
+    <h3>Résumé de la caisse</h3>
+    <div class="row"><span class="lbl">Litres gasoil vendus</span><span class="val">{{ session.litres_gasoil_vendus }} L</span></div>
+    <div class="row"><span class="lbl">Litres essence vendus</span><span class="val">{{ session.litres_essence_vendus }} L</span></div>
+    <div class="row"><span class="lbl">Montant théorique gasoil</span><span class="val">{{ session.montant_theorique_gasoil|fcfa }}</span></div>
+    <div class="row"><span class="lbl">Montant théorique essence</span><span class="val">{{ session.montant_theorique_essence|fcfa }}</span></div>
+    <div class="row"><span class="lbl">Montant théorique total</span><span class="val">{{ session.montant_theorique_total|fcfa }}</span></div>
+  </div>
+
+  <div class="card">
     <h3>Détail</h3>
-    <div class="row"><span class="lbl">Montant encaissé déclaré</span><span class="val">{{ session.montant_encaisse|fcfa }}</span></div>
+    <div class="row"><span class="lbl">Montant encaissé déclaré (pompiste)</span><span class="val">{{ session.montant_encaisse|fcfa }}</span></div>
+    <div class="row"><span class="lbl">Montant versé (vérifié Gérant)</span><span class="val">{{ session.montant_verse_gerant|fcfa }}</span></div>
+    {% if session.ecart_montant_pompiste_gerant %}
+    <div class="row"><span class="lbl">Écart pompiste / Gérant</span><span class="val">{{ session.ecart_montant_pompiste_gerant|fcfa }}</span></div>
+    {% endif %}
     <div class="row"><span class="lbl">Écart gasoil</span><span class="val">{{ session.ecart_gasoil }} L</span></div>
     <div class="row"><span class="lbl">Écart essence</span><span class="val">{{ session.ecart_essence }} L</span></div>
   </div>

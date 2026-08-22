@@ -608,6 +608,21 @@ def gerant_releve_pompiste(request, pompiste_id):
 
             valeurs_validees[pistolet.pk] = valeur
 
+        # Le montant verse (verification physique du Gerant) n'est demande QUE sur le
+        # relevé de fin — pas de sens sur un relevé de départ.
+        montant_verse_brut = request.POST.get("montant_verse_gerant", "").strip()
+        montant_verse = None
+        if type_releve == ReleveIndexGerant.FIN:
+            if not montant_verse_brut:
+                erreurs.append("Le montant versé (vérifié physiquement) est obligatoire.")
+            else:
+                try:
+                    montant_verse = float(montant_verse_brut)
+                    if montant_verse < 0:
+                        erreurs.append("Le montant versé ne peut pas être négatif.")
+                except ValueError:
+                    erreurs.append("Montant versé invalide.")
+
         # Passe 2 : creation groupee, avec capture explicite de l'IntegrityError
         # (contrainte d'exclusivite) — jamais une erreur serveur brute.
         if not erreurs:
@@ -623,6 +638,9 @@ def gerant_releve_pompiste(request, pompiste_id):
                             valeur_index=valeurs_validees[pistolet.pk],
                             date_heure=maintenant,
                         )
+                    if type_releve == ReleveIndexGerant.FIN and session_pompiste is not None:
+                        session_pompiste.montant_verse_gerant = montant_verse
+                        session_pompiste.save()
             except IntegrityError:
                 releve_existant = ReleveIndexGerant.objects.filter(
                     employee_pompiste=pompiste, type_releve=type_releve, date_heure__date=aujourdhui
