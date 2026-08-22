@@ -365,11 +365,30 @@ def pompiste_recu(request, session_id):
             pistolets_ids, releves, premiere_date, derniere_date
         )
 
+    # Structure par Pompe/Face pour un vrai tableau (Carburant/Debut/Fin/Vendu), meme
+    # composant que pompiste_finaliser — jamais une liste plate.
+    pistolets = pistolets_affectes_a(employee)
+    structure = _structurer_pistolets_par_pompe_face(pistolets)
+    for groupe_pompe in structure:
+        for groupe_face in groupe_pompe["faces"]:
+            for pistolet in groupe_face["pistolets"]:
+                releve_depart = releves.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexPompiste.DEPART
+                ).first()
+                releve_fin = releves.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexPompiste.FIN
+                ).first()
+                pistolet.index_depart = releve_depart.valeur_index if releve_depart else None
+                pistolet.index_fin = releve_fin.valeur_index if releve_fin else None
+                if releve_depart and releve_fin:
+                    pistolet.litres_vendus = releve_fin.valeur_index - releve_depart.valeur_index
+                else:
+                    pistolet.litres_vendus = None
+
     contexte = {
         "employee": employee,
         "session": session,
-        "releves": releves,
-        "litres_vendus": litres_vendus,
+        "structure": structure,
     }
     return render(request, "accounts/pompiste_recu.html", contexte)
 
