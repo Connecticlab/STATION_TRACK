@@ -250,6 +250,26 @@ def pompiste_finaliser(request):
         employee.station, pistolets_ids, releves, premiere_date, derniere_date
     )
 
+    # Detail par pistolet (index depart/fin, litres vendus) — structure par Pompe/Face,
+    # jamais une liste plate, cohérent avec toutes nos regles d'affichage deja etablies.
+    pistolets = pistolets_affectes_a(employee)
+    structure = _structurer_pistolets_par_pompe_face(pistolets)
+    for groupe_pompe in structure:
+        for groupe_face in groupe_pompe["faces"]:
+            for pistolet in groupe_face["pistolets"]:
+                releve_depart = releves.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexPompiste.DEPART
+                ).first()
+                releve_fin = releves.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexPompiste.FIN
+                ).first()
+                pistolet.index_depart = releve_depart.valeur_index if releve_depart else None
+                pistolet.index_fin = releve_fin.valeur_index if releve_fin else None
+                if releve_depart and releve_fin:
+                    pistolet.litres_vendus = releve_fin.valeur_index - releve_depart.valeur_index
+                else:
+                    pistolet.litres_vendus = None
+
     erreurs = []
 
     if request.method == "POST":
@@ -273,6 +293,7 @@ def pompiste_finaliser(request):
         "employee": employee,
         "session": session,
         "apercu": apercu,
+        "structure": structure,
         "erreurs": erreurs,
     }
     return render(request, "accounts/pompiste_finaliser.html", contexte)

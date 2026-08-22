@@ -28,10 +28,10 @@ body{padding:16px;padding-bottom:48px}
   color:white;font-size:20px;text-align:center;padding:0 8px;font-family:inherit
 }
 .pistolet-row input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,105,255,.16)}
-.ref{font-size:11px;color:var(--muted);display:block;margin-top:2px}
 .big-btn{
   width:100%;height:58px;border:0;border-radius:14px;color:white;font-weight:800;
-  font-size:16px;cursor:pointer;margin-top:8px;font-family:inherit
+  font-size:16px;cursor:pointer;margin-top:8px;font-family:inherit;text-decoration:none;
+  display:flex;align-items:center;justify-content:center
 }
 .big-btn.start{background:var(--green);box-shadow:0 10px 26px rgba(31,174,99,.3)}
 .big-btn.close{background:var(--danger);box-shadow:0 10px 26px rgba(255,84,112,.28)}
@@ -56,6 +56,7 @@ body{padding:16px;padding-bottom:48px}
 .total-item{background:#0c141c;border-radius:10px;padding:10px;text-align:center}
 .total-item .val{font-size:16px;font-weight:800}
 .total-item .lbl{font-size:9.5px;color:var(--muted);text-transform:uppercase;margin-top:2px}
+.note{font-size:11px;color:var(--muted);margin-top:10px;text-align:center}
 .error-banner{
   background:var(--danger-bg);border:1px solid rgba(255,84,112,.32);color:#ffb3c0;
   border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px
@@ -65,6 +66,10 @@ body{padding:16px;padding-bottom:48px}
 .confirmation .icon{font-size:48px;margin-bottom:10px}
 .confirmation h2{font-size:20px;margin:0 0 8px}
 .confirmation p{color:var(--muted);font-size:13.5px;margin:0}
+.back{
+  display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:14px;font-weight:700;
+  text-decoration:none;height:52px;line-height:52px;border:1px solid var(--line);border-radius:12px
+}
 </style>
 </head>
 <body>
@@ -93,12 +98,9 @@ body{padding:16px;padding-bottom:48px}
       <p>Votre caisse d'aujourd'hui est clôturée, revenez demain.</p>
     </div>
 
-    <a class="big-btn start" style="display:block;text-align:center;line-height:58px;text-decoration:none;box-sizing:border-box;"
-       href="{% url 'accounts:pompiste_recu' session.pk %}">VOIR MON REÇU</a>
-    <a class="big-btn" style="display:block;text-align:center;line-height:58px;text-decoration:none;box-sizing:border-box;background:#1c2733;color:var(--white);"
-       href="{% url 'accounts:pompiste_historique' %}">MON HISTORIQUE</a>
-    <a class="big-btn" style="display:block;text-align:center;line-height:58px;text-decoration:none;box-sizing:border-box;background:transparent;color:var(--muted);border:1px solid var(--line);"
-       href="{% url 'accounts:logout' %}">SE DÉCONNECTER</a>
+    <a class="big-btn start" href="{% url 'accounts:pompiste_recu' session.pk %}">VOIR MON REÇU</a>
+    <a class="big-btn" style="background:#1c2733;color:var(--white);" href="{% url 'accounts:pompiste_historique' %}">MON HISTORIQUE</a>
+    <a class="big-btn" style="background:transparent;color:var(--muted);border:1px solid var(--line);" href="{% url 'accounts:logout' %}">SE DÉCONNECTER</a>
 
   {% else %}
 
@@ -136,6 +138,7 @@ body{padding:16px;padding-bottom:48px}
           <div class="total-item"><div class="val">{{ session.montant_wave|fcfa }}</div><div class="lbl">Wave</div></div>
           <div class="total-item"><div class="val">{{ session.montant_orange_money|fcfa }}</div><div class="lbl">Orange</div></div>
         </div>
+        <div class="note">Ce total sert de référence — vous confirmerez votre montant réel à la clôture.</div>
       </div>
     {% endif %}
 
@@ -150,6 +153,7 @@ body{padding:16px;padding-bottom:48px}
               <div class="pistolet-row">
                 <label for="index_{{ pistolet.pk }}">
                   {{ pistolet.get_carburant_display }} {{ pistolet.numero }}
+                  {% if a_depart %}<br><span style="font-size:10.5px;color:var(--muted);">Index de fin</span>{% else %}<br><span style="font-size:10.5px;color:var(--muted);">Index de départ</span>{% endif %}
                 </label>
                 <input type="number" step="0.01" inputmode="decimal"
                        id="index_{{ pistolet.pk }}" name="index_{{ pistolet.pk }}" required>
@@ -162,7 +166,7 @@ body{padding:16px;padding-bottom:48px}
       {% if not a_depart %}
         <button type="submit" class="big-btn start">DÉMARRER MA CAISSE</button>
       {% else %}
-        <button type="submit" class="big-btn close">CLÔTURER MA CAISSE</button>
+        <button type="submit" class="big-btn close">VALIDER LES INDEX DE FIN</button>
       {% endif %}
     </form>
 

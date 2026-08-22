@@ -211,18 +211,24 @@ def calculer_apercu_theorique(station, pistolets_ids, releves_queryset, date_deb
 
     montant_gasoil = 0
     montant_essence = 0
+    prix_gasoil = 0
+    prix_essence = 0
     for carburant, quantite in litres.items():
         prix = PrixCarburant.objects.prix_en_vigueur(station, carburant, date_fin)
         if prix is not None:
             montant = quantite * prix.prix_au_litre
             if carburant == GASOIL:
                 montant_gasoil = montant
+                prix_gasoil = prix.prix_au_litre
             elif carburant == ESSENCE:
                 montant_essence = montant
+                prix_essence = prix.prix_au_litre
 
     return {
         "litres_gasoil": litres.get(GASOIL, 0),
         "litres_essence": litres.get(ESSENCE, 0),
+        "prix_gasoil": prix_gasoil,
+        "prix_essence": prix_essence,
         "montant_theorique_gasoil": montant_gasoil,
         "montant_theorique_essence": montant_essence,
         "montant_theorique_total": montant_gasoil + montant_essence,
