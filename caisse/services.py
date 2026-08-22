@@ -60,14 +60,38 @@ def confronter_session_caisse(session_caisse, marge_tolerance_litres):
         abs(ecart_gasoil) > marge_tolerance_litres or abs(ecart_essence) > marge_tolerance_litres
     )
 
-    montant_theorique = 0
+    session_caisse.litres_gasoil_vendus = litres_gerant.get(GASOIL, 0)
+    session_caisse.litres_essence_vendus = litres_gerant.get(ESSENCE, 0)
+
+    montant_theorique_gasoil = 0
+    montant_theorique_essence = 0
     for carburant, litres in litres_gerant.items():
         prix = PrixCarburant.objects.prix_en_vigueur(station, carburant, derniere_date)
         if prix is not None:
-            montant_theorique += litres * prix.prix_au_litre
+            montant = litres * prix.prix_au_litre
+            if carburant == GASOIL:
+                montant_theorique_gasoil = montant
+            elif carburant == ESSENCE:
+                montant_theorique_essence = montant
 
-    if session_caisse.montant_encaisse is not None:
-        ecart_montant = session_caisse.montant_encaisse - montant_theorique
+    montant_theorique_total = montant_theorique_gasoil + montant_theorique_essence
+    session_caisse.montant_theorique_gasoil = montant_theorique_gasoil
+    session_caisse.montant_theorique_essence = montant_theorique_essence
+    session_caisse.montant_theorique_total = montant_theorique_total
+
+    # ecart_montant_pompiste_gerant : signalement uniquement (divergence entre la
+    # declaration du pompiste et la verification physique du Gerant), jamais un blocage,
+    # jamais utilise pour le calcul MANQUANT/SURPLUS lui-meme.
+    if session_caisse.montant_encaisse is not None and session_caisse.montant_verse_gerant is not None:
+        session_caisse.ecart_montant_pompiste_gerant = (
+            session_caisse.montant_encaisse - session_caisse.montant_verse_gerant
+        )
+
+    # montant_verse_gerant FAIT FOI pour le calcul MANQUANT/SURPLUS/EXACT — symetrique
+    # a la regle deja etablie sur les index (le relevé du Gerant fait foi, celui du
+    # pompiste sert de comparaison, pas de base de calcul).
+    if session_caisse.montant_verse_gerant is not None:
+        ecart_montant = session_caisse.montant_verse_gerant - montant_theorique_total
         session_caisse.montant_ecart = ecart_montant
         if ecart_montant > 0:
             session_caisse.resultat = SessionCaisse.SURPLUS

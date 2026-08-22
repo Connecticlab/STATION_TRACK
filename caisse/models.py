@@ -38,6 +38,22 @@ class SessionCaisse(models.Model):
         help_text="Somme automatique de montant_cash + montant_wave + montant_orange_money "
                    "à la clôture. Pas une saisie manuelle unique.",
     )
+    montant_verse_gerant = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text="Montant physiquement compté et vérifié par le Gérant/Chef de piste "
+                   "(vérification indépendante, symétrique à celle des index). FAIT FOI "
+                   "pour le calcul MANQUANT/SURPLUS, pas montant_encaisse.",
+    )
+    ecart_montant_pompiste_gerant = models.DecimalField(
+        max_digits=12, decimal_places=2, null=True, blank=True,
+        help_text="Écart entre montant_encaisse (déclaration pompiste) et montant_verse_gerant "
+                   "(vérification Gérant). Signalement uniquement, jamais un blocage.",
+    )
+    litres_gasoil_vendus = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    litres_essence_vendus = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    montant_theorique_gasoil = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    montant_theorique_essence = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    montant_theorique_total = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     resultat = models.CharField(max_length=10, choices=RESULTAT_CHOICES, null=True, blank=True)
     montant_ecart = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     ecart_gasoil = models.DecimalField(

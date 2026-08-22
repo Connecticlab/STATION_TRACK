@@ -654,3 +654,41 @@ def gerant_releve_pompiste(request, pompiste_id):
         "erreurs": erreurs,
     }
     return render(request, "accounts/gerant_releve_pompiste.html", contexte)
+
+
+@require_employee_login(roles=[Employee.GERANT, Employee.CHEF_DE_PISTE])
+def gerant_confronter(request, pompiste_id):
+    """Declenchement EXPLICITE de la confrontation (jamais automatique/silencieux, ce
+    sont des fonctions a effet de bord). Verifie a nouveau peut_confronter cote serveur
+    (pas seulement cache le bouton cote template) avant d'agir — defense en profondeur."""
+    from django.shortcuts import get_object_or_404
+    from django.utils import timezone
+
+    from caisse.models import SessionCaisse
+    from caisse.services import appliquer_resultat_au_solde, confronter_session_caisse
+
+    employee = request.employee
+    pompiste = get_object_or_404(Employee, pk=pompiste_id, role=Employee.POMPISTE, station=employee.station)
+
+    aujourdhui = timezone.localtime(timezone.now()).date()
+    session = get_object_or_404(SessionCaisse, employee=pompiste, date=aujourdhui)
+
+    if session.montant_encaisse is None:
+        # Meme controle que peut_confronter dans gerant_releve_pompiste : jamais
+        # confronter sans que le pompiste ait clos sa propre declaration.
+        return redirect("accounts:gerant_releve_pompiste", pompiste_id=pompiste.pk)
+
+    societe = request.societe
+
+    session = confronter_session_caisse(session, societe.marge_tolerance_divergence_litres)
+    session.save()
+
+    alerte_dette = appliquer_resultat_au_solde(session, societe.seuil_alerte_dette_fcfa)
+
+    contexte = {
+        "employee": employee,
+        "pompiste": pompiste,
+        "session": session,
+        "alerte_dette": alerte_dette,
+    }
+    return render(request, "accounts/gerant_confrontation_resultat.html", contexte)
