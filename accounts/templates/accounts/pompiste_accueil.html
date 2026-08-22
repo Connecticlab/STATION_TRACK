@@ -70,6 +70,17 @@ body{padding:16px;padding-bottom:48px}
   display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:14px;font-weight:700;
   text-decoration:none;height:52px;line-height:52px;border:1px solid var(--line);border-radius:12px
 }
+.wizard-progress{margin-bottom:16px}
+.wizard-track{height:6px;background:var(--panel);border:1px solid var(--line);border-radius:99px;overflow:hidden}
+.wizard-fill{height:100%;background:var(--blue);border-radius:99px;transition:width .25s ease}
+.wizard-label{font-size:16px;font-weight:800;color:var(--orange);text-align:center;margin-top:10px}
+.wizard-nav{display:flex;gap:10px;margin-top:8px}
+.wizard-btn{
+  flex:1;height:52px;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;
+  font-family:inherit;border:1px solid var(--line);background:transparent;color:var(--white)
+}
+.wizard-btn.next{background:var(--blue);border:none}
+.wizard-btn.prev{background:var(--orange);border:none;color:white}
 </style>
 </head>
 <body>
@@ -142,15 +153,19 @@ body{padding:16px;padding-bottom:48px}
       </div>
     {% endif %}
 
-    <form method="post">
+    <form method="post" id="indexForm">
       {% csrf_token %}
+      <div class="wizard-progress" id="wizardProgress" style="display:none;">
+        <div class="wizard-track"><div class="wizard-fill" id="wizardFill"></div></div>
+        <div class="wizard-label" id="wizardLabel"></div>
+      </div>
       {% for groupe_pompe in structure %}
         <div class="card">
           <h2>Pompe {{ groupe_pompe.pompe.numero }}</h2>
           {% for groupe_face in groupe_pompe.faces %}
             <h3>Face {{ groupe_face.face.numero }}</h3>
             {% for pistolet in groupe_face.pistolets %}
-              <div class="pistolet-row">
+              <div class="pistolet-row" data-pompe="{{ groupe_pompe.pompe.numero }}" data-face="{{ groupe_face.face.numero }}">
                 <label for="index_{{ pistolet.pk }}">
                   {{ pistolet.get_carburant_display }} {{ pistolet.numero }}
                   {% if a_depart %}<br><span style="font-size:10.5px;color:var(--muted);">Index de fin</span>{% else %}<br><span style="font-size:10.5px;color:var(--muted);">Index de départ</span>{% endif %}
@@ -162,13 +177,66 @@ body{padding:16px;padding-bottom:48px}
           {% endfor %}
         </div>
       {% endfor %}
-
+      <div class="wizard-nav" id="wizardNav" style="display:none;">
+        <button type="button" class="wizard-btn prev" id="wizardPrev" style="display:none;">Précédent</button>
+        <button type="button" class="wizard-btn next" id="wizardNext">Suivant</button>
+      </div>
       {% if not a_depart %}
         <button type="submit" class="big-btn start">DÉMARRER MA CAISSE</button>
       {% else %}
         <button type="submit" class="big-btn close">VALIDER LES INDEX DE FIN</button>
       {% endif %}
     </form>
+
+    <script>
+    (function(){
+      var rows = Array.prototype.slice.call(document.querySelectorAll('#indexForm .pistolet-row'));
+      if (rows.length <= 1) return;
+
+      var current = 0;
+      var progress = document.getElementById('wizardProgress');
+      var nav = document.getElementById('wizardNav');
+      var prevBtn = document.getElementById('wizardPrev');
+      var nextBtn = document.getElementById('wizardNext');
+      var fill = document.getElementById('wizardFill');
+      var label = document.getElementById('wizardLabel');
+      var submitBtn = document.querySelector('#indexForm button[type="submit"]');
+
+      var headers = document.querySelectorAll('#indexForm h2, #indexForm h3');
+      headers.forEach(function(h){ h.style.display = 'none'; });
+
+      rows.forEach(function(r){ r.style.display = 'none'; });
+      progress.style.display = 'block';
+      nav.style.display = 'flex';
+      if (submitBtn) submitBtn.style.display = 'none';
+
+      function render(){
+        rows.forEach(function(r, i){ r.style.display = (i === current) ? 'flex' : 'none'; });
+        var ctx = rows[current];
+        label.textContent = 'Pompe ' + ctx.dataset.pompe + ', Face ' + ctx.dataset.face + ' — Pistolet ' + (current + 1) + ' sur ' + rows.length;
+        fill.style.width = Math.round(((current + 1) / rows.length) * 100) + '%';
+        prevBtn.style.display = (current === 0) ? 'none' : 'block';
+        if (current === rows.length - 1) {
+          nextBtn.style.display = 'none';
+          if (submitBtn) submitBtn.style.display = 'flex';
+        } else {
+          nextBtn.style.display = 'block';
+          if (submitBtn) submitBtn.style.display = 'none';
+        }
+      }
+
+      nextBtn.addEventListener('click', function(){
+        var input = rows[current].querySelector('input');
+        if (input && !input.value) { input.focus(); return; }
+        if (current < rows.length - 1) { current++; render(); }
+      });
+      prevBtn.addEventListener('click', function(){
+        if (current > 0) { current--; render(); }
+      });
+
+      render();
+    })();
+    </script>
 
   {% endif %}
 
