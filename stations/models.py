@@ -90,7 +90,10 @@ class Pistolet(models.Model):
     face = models.ForeignKey(Face, on_delete=models.CASCADE, related_name="pistolets")
     numero = models.PositiveIntegerField(
         editable=False,
-        help_text="Numéro séquentiel du pistolet sur toute la station (pas remis à zéro par pompe)",
+        help_text="Numéro séquentiel PAR CARBURANT, sur toute la station (pas remis à zéro "
+                   "par pompe/face — mais chaque carburant a son propre compteur independant, "
+                   "confirme par le terrain). Ex: Gasoil 1, 2, 3... et Essence 1, 2, 3... "
+                   "en parallele.",
     )
     carburant = models.CharField(max_length=10, choices=CARBURANT_CHOICES)
     actif = models.BooleanField(default=True)
@@ -104,7 +107,7 @@ class Pistolet(models.Model):
         if self.numero is None or self.pk is None:
             station = self.face.pompe.station
             dernier = Pistolet.objects.filter(
-                face__pompe__station=station
+                face__pompe__station=station, carburant=self.carburant
             ).order_by("-numero").first()
             self.numero = (dernier.numero + 1) if dernier else 1
         super().save(*args, **kwargs)

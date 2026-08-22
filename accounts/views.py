@@ -676,6 +676,11 @@ def gerant_releve_pompiste(request, pompiste_id):
         employee_pompiste=pompiste, date_heure__date=aujourdhui, type_releve=ReleveIndexGerant.FIN
     ).exists()
 
+    a_montant_verse = session_pompiste is not None and session_pompiste.montant_verse_gerant is not None
+
+    if a_fin_gerant and not a_montant_verse:
+        return redirect("accounts:gerant_finaliser", pompiste_id=pompiste.pk)
+
     erreurs = []
 
     if request.method == "POST" and not a_fin_gerant:
@@ -709,21 +714,6 @@ def gerant_releve_pompiste(request, pompiste_id):
 
             valeurs_validees[pistolet.pk] = valeur
 
-        # Le montant verse (verification physique du Gerant) n'est demande QUE sur le
-        # relevé de fin — pas de sens sur un relevé de départ.
-        montant_verse_brut = request.POST.get("montant_verse_gerant", "").strip()
-        montant_verse = None
-        if type_releve == ReleveIndexGerant.FIN:
-            if not montant_verse_brut:
-                erreurs.append("Le montant versé (vérifié physiquement) est obligatoire.")
-            else:
-                try:
-                    montant_verse = float(montant_verse_brut)
-                    if montant_verse < 0:
-                        erreurs.append("Le montant versé ne peut pas être négatif.")
-                except ValueError:
-                    erreurs.append("Montant versé invalide.")
-
         # Passe 2 : creation groupee, avec capture explicite de l'IntegrityError
         # (contrainte d'exclusivite) — jamais une erreur serveur brute.
         if not erreurs:
@@ -739,9 +729,6 @@ def gerant_releve_pompiste(request, pompiste_id):
                             valeur_index=valeurs_validees[pistolet.pk],
                             date_heure=maintenant,
                         )
-                    if type_releve == ReleveIndexGerant.FIN and session_pompiste is not None:
-                        session_pompiste.montant_verse_gerant = montant_verse
-                        session_pompiste.save()
             except IntegrityError:
                 releve_existant = ReleveIndexGerant.objects.filter(
                     employee_pompiste=pompiste, type_releve=type_releve, date_heure__date=aujourdhui
@@ -783,8 +770,9 @@ def gerant_confronter(request, pompiste_id):
     from django.shortcuts import get_object_or_404
     from django.utils import timezone
 
-    from caisse.models import SessionCaisse
+    from caisse.models import ReleveIndexGerant, SessionCaisse
     from caisse.services import appliquer_resultat_au_solde, confronter_session_caisse
+    from stations.services import pistolets_affectes_a
 
     employee = request.employee
     pompiste = get_object_or_404(Employee, pk=pompiste_id, role=Employee.POMPISTE, station=employee.station)
@@ -804,10 +792,117 @@ def gerant_confronter(request, pompiste_id):
 
     alerte_dette = appliquer_resultat_au_solde(session, societe.seuil_alerte_dette_fcfa)
 
+    # Detail par pistolet EN FONCTION DU RELEVE DU GERANT (fait foi), pas du pompiste —
+    # meme composant que pompiste_finaliser/gerant_finaliser.
+    releves_gerant = ReleveIndexGerant.objects.filter(
+        employee_pompiste=pompiste, date_heure__date=aujourdhui
+    )
+    pistolets = pistolets_affectes_a(pompiste)
+    structure = _structurer_pistolets_par_pompe_face(pistolets)
+    for groupe_pompe in structure:
+        for groupe_face in groupe_pompe["faces"]:
+            for pistolet in groupe_face["pistolets"]:
+                releve_depart = releves_gerant.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexGerant.DEPART
+                ).first()
+                releve_fin = releves_gerant.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexGerant.FIN
+                ).first()
+                pistolet.index_depart = releve_depart.valeur_index if releve_depart else None
+                pistolet.index_fin = releve_fin.valeur_index if releve_fin else None
+                if releve_depart and releve_fin:
+                    pistolet.litres_vendus = releve_fin.valeur_index - releve_depart.valeur_index
+                else:
+                    pistolet.litres_vendus = None
+
     contexte = {
         "employee": employee,
         "pompiste": pompiste,
         "session": session,
+        "structure": structure,
         "alerte_dette": alerte_dette,
     }
     return render(request, "accounts/gerant_confrontation_resultat.html", contexte)
+
+
+@require_employee_login(roles=[Employee.GERANT, Employee.CHEF_DE_PISTE])
+def gerant_finaliser(request, pompiste_id):
+    """Ecran dedie, symetrique a pompiste_finaliser : affiche le calcul theorique depuis
+    les PROPRES relevés du Gerant (apercu, pas encore la confrontation officielle),
+    detail par pistolet en tableau, PUIS demande la saisie manuelle du montant
+    physiquement compte par le Gerant — jamais un simple affichage, en toute
+    transparence pour que le Gerant puisse verifier son propre calcul."""
+    from django.shortcuts import get_object_or_404, redirect
+    from django.utils import timezone
+
+    from caisse.models import ReleveIndexGerant, SessionCaisse
+    from caisse.services import calculer_apercu_theorique
+    from stations.services import pistolets_affectes_a
+
+    employee = request.employee
+    pompiste = get_object_or_404(Employee, pk=pompiste_id, role=Employee.POMPISTE, station=employee.station)
+
+    aujourdhui = timezone.localtime(timezone.now()).date()
+    session_pompiste = get_object_or_404(SessionCaisse, employee=pompiste, date=aujourdhui)
+
+    if session_pompiste.montant_verse_gerant is not None:
+        return redirect("accounts:gerant_releve_pompiste", pompiste_id=pompiste.pk)
+
+    pistolets_ids = list(pistolets_affectes_a(pompiste).values_list("id", flat=True))
+    releves = ReleveIndexGerant.objects.filter(
+        employee_pompiste=pompiste, date_heure__date=aujourdhui
+    )
+    premiere_date = releves.order_by("date_heure").values_list("date_heure", flat=True).first()
+    derniere_date = releves.order_by("-date_heure").values_list("date_heure", flat=True).first()
+
+    apercu = calculer_apercu_theorique(
+        employee.station, pistolets_ids, releves, premiere_date, derniere_date
+    )
+
+    # Detail par pistolet (index depart/fin, litres vendus) — structure par Pompe/Face,
+    # meme composant que pompiste_finaliser.
+    pistolets = pistolets_affectes_a(pompiste)
+    structure = _structurer_pistolets_par_pompe_face(pistolets)
+    for groupe_pompe in structure:
+        for groupe_face in groupe_pompe["faces"]:
+            for pistolet in groupe_face["pistolets"]:
+                releve_depart = releves.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexGerant.DEPART
+                ).first()
+                releve_fin = releves.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexGerant.FIN
+                ).first()
+                pistolet.index_depart = releve_depart.valeur_index if releve_depart else None
+                pistolet.index_fin = releve_fin.valeur_index if releve_fin else None
+                if releve_depart and releve_fin:
+                    pistolet.litres_vendus = releve_fin.valeur_index - releve_depart.valeur_index
+                else:
+                    pistolet.litres_vendus = None
+
+    erreurs = []
+
+    if request.method == "POST":
+        montant_brut = request.POST.get("montant_verse_gerant", "").strip()
+        if not montant_brut:
+            erreurs.append("Le montant versé est obligatoire.")
+        else:
+            try:
+                montant = float(montant_brut)
+                if montant < 0:
+                    erreurs.append("Le montant ne peut pas être négatif.")
+            except ValueError:
+                erreurs.append("Montant invalide.")
+
+        if not erreurs:
+            session_pompiste.montant_verse_gerant = montant
+            session_pompiste.save()
+            return redirect("accounts:gerant_releve_pompiste", pompiste_id=pompiste.pk)
+
+    contexte = {
+        "employee": employee,
+        "pompiste": pompiste,
+        "apercu": apercu,
+        "structure": structure,
+        "erreurs": erreurs,
+    }
+    return render(request, "accounts/gerant_finaliser.html", contexte)

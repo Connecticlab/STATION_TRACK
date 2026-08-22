@@ -42,14 +42,28 @@ def confronter_session_caisse(session_caisse, marge_tolerance_litres):
     releves_gerant = ReleveIndexGerant.objects.filter(session_caisse=session_caisse)
     releves_pompiste = ReleveIndexPompiste.objects.filter(session_caisse=session_caisse)
 
-    premiere_date = releves_gerant.order_by("date_heure").values_list("date_heure", flat=True).first()
-    derniere_date = releves_gerant.order_by("-date_heure").values_list("date_heure", flat=True).first()
+    # Chaque role utilise SA PROPRE fenetre temporelle, jamais celle de l'autre — le
+    # Gerant releve generalement APRES le depart du pompiste et AVANT sa cloture, donc
+    # utiliser la fenetre du Gerant pour filtrer les releves du pompiste les exclurait
+    # silencieusement (bug reel corrige : litres_pompiste tombait a 0).
+    premiere_date_gerant = releves_gerant.order_by("date_heure").values_list("date_heure", flat=True).first()
+    derniere_date_gerant = releves_gerant.order_by("-date_heure").values_list("date_heure", flat=True).first()
+    premiere_date_pompiste = releves_pompiste.order_by("date_heure").values_list("date_heure", flat=True).first()
+    derniere_date_pompiste = releves_pompiste.order_by("-date_heure").values_list("date_heure", flat=True).first()
 
-    if premiere_date is None or derniere_date is None:
+    if premiere_date_gerant is None or derniere_date_gerant is None:
         return session_caisse
 
-    litres_gerant = litres_vendus_par_carburant(pistolets_ids, releves_gerant, premiere_date, derniere_date)
-    litres_pompiste = litres_vendus_par_carburant(pistolets_ids, releves_pompiste, premiere_date, derniere_date)
+    litres_gerant = litres_vendus_par_carburant(
+        pistolets_ids, releves_gerant, premiere_date_gerant, derniere_date_gerant
+    )
+    litres_pompiste = {}
+    if premiere_date_pompiste is not None and derniere_date_pompiste is not None:
+        litres_pompiste = litres_vendus_par_carburant(
+            pistolets_ids, releves_pompiste, premiere_date_pompiste, derniere_date_pompiste
+        )
+
+    derniere_date = derniere_date_gerant
 
     ecart_gasoil = litres_pompiste.get(GASOIL, 0) - litres_gerant.get(GASOIL, 0)
     ecart_essence = litres_pompiste.get(ESSENCE, 0) - litres_gerant.get(ESSENCE, 0)

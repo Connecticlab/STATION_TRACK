@@ -74,18 +74,64 @@ body{padding:16px;padding-bottom:48px}
   {% endif %}
 
   <div class="card">
-    <h3>Résumé de la caisse</h3>
-    <div class="row"><span class="lbl">Litres gasoil vendus</span><span class="val">{{ session.litres_gasoil_vendus }} L</span></div>
-    <div class="row"><span class="lbl">Litres essence vendus</span><span class="val">{{ session.litres_essence_vendus }} L</span></div>
-    <div class="row"><span class="lbl">Montant théorique gasoil</span><span class="val">{{ session.montant_theorique_gasoil|fcfa }}</span></div>
-    <div class="row"><span class="lbl">Montant théorique essence</span><span class="val">{{ session.montant_theorique_essence|fcfa }}</span></div>
-    <div class="row"><span class="lbl">Montant théorique total</span><span class="val">{{ session.montant_theorique_total|fcfa }}</span></div>
+    <h3>Détail par pistolet</h3>
+    {% for groupe_pompe in structure %}
+      <div style="font-size:11px;color:var(--orange);margin:10px 0 6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Pompe {{ groupe_pompe.pompe.numero }}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--line);">
+            <th style="text-align:center;padding:6px 4px;color:var(--muted);font-weight:600;">Carburant</th>
+            <th style="text-align:center;padding:6px 4px;color:var(--muted);font-weight:600;border-left:1px solid var(--line);">Début</th>
+            <th style="text-align:center;padding:6px 4px;color:var(--muted);font-weight:600;border-left:1px solid var(--line);">Fin</th>
+            <th style="text-align:center;padding:6px 4px;color:var(--muted);font-weight:600;border-left:1px solid var(--line);">Vendu</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for groupe_face in groupe_pompe.faces %}
+            {% for pistolet in groupe_face.pistolets %}
+              <tr style="border-bottom:1px solid var(--line);">
+                <td style="padding:8px 4px;text-align:center;">{{ pistolet.get_carburant_display }} {{ pistolet.numero }}</td>
+                <td style="padding:8px 4px;text-align:center;border-left:1px solid var(--line);">{{ pistolet.index_depart }}</td>
+                <td style="padding:8px 4px;text-align:center;border-left:1px solid var(--line);">{{ pistolet.index_fin }}</td>
+                <td style="padding:8px 4px;text-align:center;font-weight:700;border-left:1px solid var(--line);">{{ pistolet.litres_vendus }}</td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h3>Calcul théorique</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:12px;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--line);">
+          <th style="text-align:center;padding:6px 4px;color:var(--muted);font-weight:600;">Carburant</th>
+          <th style="text-align:center;padding:6px 4px;color:var(--muted);font-weight:600;border-left:1px solid var(--line);">Litres</th>
+          <th style="text-align:center;padding:6px 4px;color:var(--muted);font-weight:600;border-left:1px solid var(--line);">Montant</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:8px 4px;text-align:center;">Gasoil</td>
+          <td style="padding:8px 4px;text-align:center;border-left:1px solid var(--line);">{{ session.litres_gasoil_vendus }}</td>
+          <td style="padding:8px 4px;text-align:center;font-weight:700;border-left:1px solid var(--line);">{{ session.montant_theorique_gasoil|fcfa }}</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--line);">
+          <td style="padding:8px 4px;text-align:center;">Essence</td>
+          <td style="padding:8px 4px;text-align:center;border-left:1px solid var(--line);">{{ session.litres_essence_vendus }}</td>
+          <td style="padding:8px 4px;text-align:center;font-weight:700;border-left:1px solid var(--line);">{{ session.montant_theorique_essence|fcfa }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="row total"><span>Total théorique</span><span>{{ session.montant_theorique_total|fcfa }}</span></div>
   </div>
 
   <div class="card">
     <h3>Détail</h3>
-    <div class="row"><span class="lbl">Montant encaissé déclaré (pompiste)</span><span class="val">{{ session.montant_encaisse|fcfa }}</span></div>
-    <div class="row"><span class="lbl">Montant versé (vérifié Gérant)</span><span class="val">{{ session.montant_verse_gerant|fcfa }}</span></div>
+    <div class="row"><span class="lbl">Déclaré par le pompiste</span><span class="val">{{ session.montant_encaisse|fcfa }}</span></div>
+    <div class="row"><span class="lbl">Vérifié par le Gérant</span><span class="val">{{ session.montant_verse_gerant|fcfa }}</span></div>
     {% if session.ecart_montant_pompiste_gerant %}
     <div class="row"><span class="lbl">Écart pompiste / Gérant</span><span class="val">{{ session.ecart_montant_pompiste_gerant|fcfa }}</span></div>
     {% endif %}
