@@ -131,6 +131,11 @@ def _structurer_pistolets_par_pompe_face(pistolets_queryset):
 
 @require_employee_login(roles=[Employee.POMPISTE])
 def pompiste_accueil(request):
+    """4 etats : pas demarre / demarre (paiements + index de fin) / index de fin saisi
+    mais montant pas encore confirme (redirige vers pompiste_finaliser) / cloture.
+    Le montant_encaisse est desormais une VRAIE saisie manuelle du pompiste (pas une
+    somme automatique) — le pompiste peut oublier de cliquer un bouton de paiement en
+    pleine activite, mais sait ce qu'il a reellement en main a la fin."""
     from django.db import transaction
     from django.utils import timezone
 
@@ -147,11 +152,17 @@ def pompiste_accueil(request):
     a_depart = session is not None and ReleveIndexPompiste.objects.filter(
         session_caisse=session, type_releve=ReleveIndexPompiste.DEPART
     ).exists()
+    a_index_fin = session is not None and ReleveIndexPompiste.objects.filter(
+        session_caisse=session, type_releve=ReleveIndexPompiste.FIN
+    ).exists()
     a_fin = session is not None and session.montant_encaisse is not None
+
+    if a_index_fin and not a_fin:
+        return redirect("accounts:pompiste_finaliser")
 
     erreurs = []
 
-    if request.method == "POST" and not a_fin:
+    if request.method == "POST" and not a_index_fin:
         type_releve = ReleveIndexPompiste.DEPART if not a_depart else ReleveIndexPompiste.FIN
         valeurs_validees = {}
 
@@ -195,15 +206,8 @@ def pompiste_accueil(request):
                         date_heure=maintenant,
                     )
 
-                if type_releve == ReleveIndexPompiste.FIN:
-                    session_a_jour = SessionCaisse.objects.get(pk=session.pk)
-                    session_a_jour.montant_encaisse = (
-                        session_a_jour.montant_cash
-                        + session_a_jour.montant_wave
-                        + session_a_jour.montant_orange_money
-                    )
-                    session_a_jour.save()
-
+            if type_releve == ReleveIndexPompiste.FIN:
+                return redirect("accounts:pompiste_finaliser")
             return redirect("accounts:pompiste_accueil")
 
     contexte = {
@@ -215,6 +219,63 @@ def pompiste_accueil(request):
         "erreurs": erreurs,
     }
     return render(request, "accounts/pompiste_accueil.html", contexte)
+
+
+@require_employee_login(roles=[Employee.POMPISTE])
+def pompiste_finaliser(request):
+    """Ecran dedie : affiche le calcul theorique (depuis les PROPRES relevés du pompiste,
+    apercu, pas la reference officielle) + la somme deja collectee via les boutons de
+    paiement, PUIS demande la saisie manuelle du montant reellement encaisse — jamais
+    un simple affichage, le pompiste tape sa vraie somme en toute transparence."""
+    from django.shortcuts import get_object_or_404, redirect
+    from django.utils import timezone
+
+    from caisse.models import ReleveIndexPompiste, SessionCaisse
+    from caisse.services import calculer_apercu_theorique
+    from stations.services import pistolets_affectes_a
+
+    employee = request.employee
+    aujourdhui = timezone.localtime(timezone.now()).date()
+    session = get_object_or_404(SessionCaisse, employee=employee, date=aujourdhui)
+
+    if session.montant_encaisse is not None:
+        return redirect("accounts:pompiste_accueil")
+
+    pistolets_ids = list(pistolets_affectes_a(employee).values_list("id", flat=True))
+    releves = ReleveIndexPompiste.objects.filter(session_caisse=session)
+    premiere_date = releves.order_by("date_heure").values_list("date_heure", flat=True).first()
+    derniere_date = releves.order_by("-date_heure").values_list("date_heure", flat=True).first()
+
+    apercu = calculer_apercu_theorique(
+        employee.station, pistolets_ids, releves, premiere_date, derniere_date
+    )
+
+    erreurs = []
+
+    if request.method == "POST":
+        montant_brut = request.POST.get("montant_encaisse", "").strip()
+        if not montant_brut:
+            erreurs.append("Le montant encaissé est obligatoire.")
+        else:
+            try:
+                montant = float(montant_brut)
+                if montant < 0:
+                    erreurs.append("Le montant ne peut pas être négatif.")
+            except ValueError:
+                erreurs.append("Montant invalide.")
+
+        if not erreurs:
+            session.montant_encaisse = montant
+            session.save()
+            return redirect("accounts:pompiste_accueil")
+
+    contexte = {
+        "employee": employee,
+        "session": session,
+        "apercu": apercu,
+        "erreurs": erreurs,
+    }
+    return render(request, "accounts/pompiste_finaliser.html", contexte)
 
 
 @require_employee_login(roles=[Employee.POMPISTE])

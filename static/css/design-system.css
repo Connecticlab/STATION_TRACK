@@ -1,0 +1,81 @@
+/* ===========================================================
+   StationTrack — Design System partage
+   Police auto-hebergee (Inter), variables de couleur communes,
+   echelle typographique standardisee. A importer dans tous les
+   futurs ecrans, pour eviter la duplication de style par page.
+   =========================================================== */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/static/fonts/inter-400.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/static/fonts/inter-500.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/static/fonts/inter-600.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/static/fonts/inter-700.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("/static/fonts/inter-800.ttf") format("truetype");
+}
+
+:root {
+  /* --- Typographie --- */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+
+  /* --- Theme sombre (par defaut) --- */
+  --st-bg: #070b10;
+  --st-panel: #121a23;
+  --st-panel-2: #171f29;
+  --st-line: #283542;
+  --st-text: #f6f8fb;
+  --st-muted: #8b98a8;
+
+  /* --- Accents (identiques dans les deux themes) --- */
+  --st-blue: #1769ff;
+  --st-blue-light: #5b8dff;
+  --st-orange: #ff7900;
+  --st-green: #1fae63;
+  --st-red: #ff5470;
+  --st-red-bg: rgba(255, 84, 112, 0.1);
+
+  /* --- Rayons --- */
+  --st-radius-lg: 16px;
+  --st-radius-md: 12px;
+  --st-radius-sm: 9px;
+}
+
+[data-theme="light"] {
+  --st-bg: #f4f6f9;
+  --st-panel: #ffffff;
+  --st-panel-2: #f8f9fb;
+  --st-line: #e3e7ed;
+  --st-text: #10151c;
+  --st-muted: #6b7688;
+}
+
+body {
+  font-family: var(--font-sans);
+}
