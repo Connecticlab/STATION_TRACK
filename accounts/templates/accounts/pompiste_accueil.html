@@ -5,26 +5,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StationTrack — Ma caisse</title>
 {% load formatage %}
+<link rel="stylesheet" href="/static/css/design-system.css">
 <style>
 :root{
-  --black:#070b10;--panel:#121a23;--line:#283542;
-  --blue:#1769ff;--orange:#ff7900;--green:#1fae63;--white:#f6f8fb;--muted:#8b98a8;
-  --danger:#ff5470;--danger-bg:rgba(255,84,112,.1);
+  --black:var(--st-bg);--panel:var(--st-panel);--panel2:var(--st-panel-2);--line:var(--st-line);
+  --blue:var(--st-blue);--orange:var(--st-orange);--green:var(--st-green);--white:var(--st-text);--muted:var(--st-muted);
+  --danger:var(--st-red);--danger-bg:var(--st-red-bg);
+  --blue-text:var(--st-blue-text);--orange-text:var(--st-orange-text);--green-text:var(--st-green-text);
 }
 *{box-sizing:border-box}
-html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--black);color:var(--white)}
+html,body{margin:0;min-height:100%;font-family:var(--font-sans);background:var(--black);color:var(--white);transition:background .2s ease,color .2s ease}
 body{padding:16px;padding-bottom:48px}
 .wrap{max-width:640px;margin:0 auto}
 .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding:4px 2px}
 .header h1{font-size:19px;margin:0}
 .header .role{font-size:11px;color:var(--muted);margin-top:2px}
+.theme-toggle{
+  width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+  color:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center
+}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
 .card h2{font-size:15px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
-.card h3{font-size:14px;margin:14px 0 8px;color:#c8d3df}
+.card h3{font-size:14px;margin:14px 0 8px;color:var(--white)}
 .pistolet-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .pistolet-row label{flex:1;font-size:13.5px;color:var(--white)}
 .pistolet-row input{
-  width:130px;height:50px;background:#0c141c;border:1px solid var(--line);border-radius:10px;
+  width:130px;height:50px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
   color:white;font-size:20px;text-align:center;padding:0 8px;font-family:inherit
 }
 .pistolet-row input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,105,255,.16)}
@@ -36,13 +42,14 @@ body{padding:16px;padding-bottom:48px}
 .big-btn.start{background:var(--green);box-shadow:0 10px 26px rgba(31,174,99,.3)}
 .big-btn.close{background:var(--danger);box-shadow:0 10px 26px rgba(255,84,112,.28)}
 .payment-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
-.pay-form{background:#0c141c;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.pay-form{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
 .pay-form .label{font-size:12px;font-weight:700;margin-bottom:8px}
+.method-dot{display:inline-block;width:9px;height:9px;border-radius:3px;background:currentColor;vertical-align:1px;margin-right:2px}
 .pay-form.cash .label{color:var(--green)}
 .pay-form.wave .label{color:var(--blue)}
 .pay-form.orange .label{color:var(--orange)}
 .pay-form input{
-  width:100%;height:44px;background:#070b10;border:1px solid var(--line);border-radius:8px;
+  width:100%;height:44px;background:var(--black);border:1px solid var(--line);border-radius:8px;
   color:white;font-size:16px;text-align:center;margin-bottom:8px;font-family:inherit
 }
 .pay-form button{
@@ -53,7 +60,7 @@ body{padding:16px;padding-bottom:48px}
 .pay-form.wave button{background:var(--blue)}
 .pay-form.orange button{background:var(--orange)}
 .totaux{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
-.total-item{background:#0c141c;border-radius:10px;padding:10px;text-align:center}
+.total-item{background:var(--panel2);border-radius:10px;padding:10px;text-align:center}
 .total-item .val{font-size:16px;font-weight:800}
 .total-item .lbl{font-size:9.5px;color:var(--muted);text-transform:uppercase;margin-top:2px}
 .note{font-size:11px;color:var(--muted);margin-top:10px;text-align:center}
@@ -91,6 +98,9 @@ body{padding:16px;padding-bottom:48px}
       <h1>{{ employee.nom_complet }}</h1>
       <div class="role">Pompiste</div>
     </div>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Changer de thème">
+      <span id="themeIcon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+    </button>
   </div>
 
   {% if erreurs %}
@@ -104,14 +114,14 @@ body{padding:16px;padding-bottom:48px}
 
   {% if a_fin %}
     <div class="card confirmation">
-      <div class="icon">✅</div>
+      <div class="icon"><svg viewBox="0 0 24 24" width="48" height="48" style="margin:0 auto;display:block;" stroke="var(--green)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
       <h2>Caisse clôturée</h2>
       <p>Votre caisse d'aujourd'hui est clôturée, revenez demain.</p>
     </div>
 
     <a class="big-btn start" href="{% url 'accounts:pompiste_recu' session.pk %}">VOIR MON REÇU</a>
-    <a class="big-btn" style="background:#1c2733;color:var(--white);" href="{% url 'accounts:pompiste_historique' %}">MON HISTORIQUE</a>
-    <a class="big-btn" style="background:transparent;color:var(--muted);border:1px solid var(--line);" href="{% url 'accounts:logout' %}">SE DÉCONNECTER</a>
+    <a class="big-btn" style="background:var(--blue);color:white;" href="{% url 'accounts:pompiste_historique' %}">MON HISTORIQUE</a>
+    <a class="big-btn" style="background:var(--danger);color:white;" href="{% url 'accounts:logout' %}">SE DÉCONNECTER</a>
 
   {% else %}
 
@@ -122,14 +132,14 @@ body{padding:16px;padding-bottom:48px}
           <form class="pay-form cash" method="post" action="{% url 'accounts:pompiste_ajouter_paiement' %}">
             {% csrf_token %}
             <input type="hidden" name="methode" value="cash">
-            <div class="label">🟩 Cash</div>
+            <div class="label"><span class="method-dot"></span> Cash</div>
             <input type="number" name="montant" inputmode="decimal" placeholder="Montant" required>
             <button type="submit">Ajouter</button>
           </form>
           <form class="pay-form wave" method="post" action="{% url 'accounts:pompiste_ajouter_paiement' %}">
             {% csrf_token %}
             <input type="hidden" name="methode" value="wave">
-            <div class="label">🟦 Wave</div>
+            <div class="label"><span class="method-dot"></span> Wave</div>
             <input type="number" name="montant" inputmode="decimal" placeholder="Montant" required>
             <button type="submit">Ajouter</button>
           </form>
@@ -138,7 +148,7 @@ body{padding:16px;padding-bottom:48px}
           <form class="pay-form orange" method="post" action="{% url 'accounts:pompiste_ajouter_paiement' %}">
             {% csrf_token %}
             <input type="hidden" name="methode" value="orange_money">
-            <div class="label">🟧 Orange Money</div>
+            <div class="label"><span class="method-dot"></span> Orange Money</div>
             <input type="number" name="montant" inputmode="decimal" placeholder="Montant" required>
             <button type="submit">Ajouter</button>
           </form>
@@ -241,5 +251,33 @@ body{padding:16px;padding-bottom:48px}
   {% endif %}
 
 </div>
+<script>
+(function(){
+  var toggle = document.getElementById('themeToggle');
+  var iconWrap = document.getElementById('themeIcon');
+  var iconSun = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  var iconMoon = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  function appliquerTheme(theme) {
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      iconWrap.innerHTML = iconMoon;
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      iconWrap.innerHTML = iconSun;
+    }
+  }
+
+  var stocke = localStorage.getItem('stationtrack_theme');
+  if (stocke) appliquerTheme(stocke);
+
+  toggle.addEventListener('click', function(){
+    var actuel = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    var nouveau = actuel === 'light' ? 'dark' : 'light';
+    appliquerTheme(nouveau);
+    localStorage.setItem('stationtrack_theme', nouveau);
+  });
+})();
+</script>
 </body>
 </html>

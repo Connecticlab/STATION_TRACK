@@ -61,6 +61,13 @@
   --st-red: #ff5470;
   --st-red-bg: rgba(255, 84, 112, 0.1);
 
+  /* --- Variantes "texte" des accents : contraste suffisant quand utilisees comme
+     couleur de texte (pas de fond). Identiques aux accents en theme sombre, mais
+     assombries en theme clair (l'orange vif notamment perd tout contraste sur blanc). --- */
+  --st-blue-text: var(--st-blue);
+  --st-orange-text: var(--st-orange);
+  --st-green-text: var(--st-green);
+
   /* --- Rayons --- */
   --st-radius-lg: 16px;
   --st-radius-md: 12px;
@@ -73,7 +80,11 @@
   --st-panel-2: #f8f9fb;
   --st-line: #e3e7ed;
   --st-text: #10151c;
-  --st-muted: #6b7688;
+  --st-muted: #596272;
+
+  --st-blue-text: #0d4fc4;
+  --st-orange-text: #b35400;
+  --st-green-text: #157a45;
 }
 
 body {

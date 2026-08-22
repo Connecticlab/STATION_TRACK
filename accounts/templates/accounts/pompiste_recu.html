@@ -5,16 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StationTrack — Reçu de clôture</title>
 {% load formatage %}
+<link rel="stylesheet" href="/static/css/design-system.css">
 <style>
 :root{
-  --black:#070b10;--panel:#121a23;--line:#283542;
-  --blue:#1769ff;--orange:#ff7900;--green:#1fae63;--white:#f6f8fb;--muted:#8b98a8;
+  --black:var(--st-bg);--panel:var(--st-panel);--panel2:var(--st-panel-2);--line:var(--st-line);
+  --blue:var(--st-blue);--orange:var(--st-orange);--green:var(--st-green);--white:var(--st-text);--muted:var(--st-muted);
 }
 *{box-sizing:border-box}
-html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--black);color:var(--white)}
+html,body{margin:0;min-height:100%;font-family:var(--font-sans);background:var(--black);color:var(--white);transition:background .2s ease,color .2s ease}
 body{padding:16px;padding-bottom:60px}
 .wrap{max-width:560px;margin:0 auto}
 .notice{font-size:11px;color:var(--muted);text-align:center;margin-bottom:16px;padding:8px 12px;border:1px dashed var(--line);border-radius:8px}
+.theme-toggle{
+  width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+  color:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  margin:0 auto 16px;
+}
 .receipt{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px}
 .receipt h1{font-size:18px;margin:0 0 2px}
 .receipt .sub{font-size:11.5px;color:var(--muted);margin-bottom:18px}
@@ -23,7 +29,7 @@ body{padding:16px;padding-bottom:60px}
 .section h2{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:0 0 10px}
 .row{display:flex;justify-content:space-between;font-size:13.5px;padding:6px 0;border-bottom:1px solid var(--line)}
 .row:last-child{border-bottom:none}
-.row .lbl{color:#c8d3df}
+.row .lbl{color:var(--white)}
 .row .val{font-weight:700}
 .total-row{display:flex;justify-content:space-between;font-size:16px;font-weight:800;margin-top:10px;padding-top:10px;border-top:2px solid var(--line)}
 .actions{display:flex;gap:10px;margin-top:20px}
@@ -41,6 +47,9 @@ body{padding:16px;padding-bottom:60px}
 </head>
 <body>
 <div class="wrap">
+  <button class="theme-toggle" id="themeToggle" type="button" aria-label="Changer de thème">
+    <span id="themeIcon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+  </button>
   <div class="notice">Reçu de clôture — récapitulatif personnel du pompiste, pas encore le PV officiel (confrontation Gérant à venir).</div>
 
   <div class="receipt">
@@ -92,5 +101,33 @@ body{padding:16px;padding-bottom:60px}
     </div>
   </div>
 </div>
+<script>
+(function(){
+  var toggle = document.getElementById('themeToggle');
+  var iconWrap = document.getElementById('themeIcon');
+  var iconSun = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  var iconMoon = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  function appliquerTheme(theme) {
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      iconWrap.innerHTML = iconMoon;
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      iconWrap.innerHTML = iconSun;
+    }
+  }
+
+  var stocke = localStorage.getItem('stationtrack_theme');
+  if (stocke) appliquerTheme(stocke);
+
+  toggle.addEventListener('click', function(){
+    var actuel = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    var nouveau = actuel === 'light' ? 'dark' : 'light';
+    appliquerTheme(nouveau);
+    localStorage.setItem('stationtrack_theme', nouveau);
+  });
+})();
+</script>
 </body>
 </html>
