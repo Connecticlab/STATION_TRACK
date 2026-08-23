@@ -5,27 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>StationTrack — Relevé indépendant</title>
 {% load formatage %}
+<link rel="stylesheet" href="/static/css/design-system.css">
 <style>
 :root{
-  --black:#070b10;--panel:#121a23;--line:#283542;
-  --blue:#1769ff;--orange:#ff7900;--green:#1fae63;--white:#f6f8fb;--muted:#8b98a8;
-  --danger:#ff5470;--danger-bg:rgba(255,84,112,.1);
+  --black:var(--st-bg);--panel:var(--st-panel);--panel2:var(--st-panel-2);--line:var(--st-line);
+  --blue:var(--st-blue);--orange:var(--st-orange);--green:var(--st-green);--white:var(--st-text);--muted:var(--st-muted);
+  --danger:var(--st-red);--danger-bg:var(--st-red-bg);
 }
 *{box-sizing:border-box}
-html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--black);color:var(--white)}
+html,body{margin:0;min-height:100%;font-family:var(--font-sans);background:var(--black);color:var(--white);transition:background .2s ease,color .2s ease}
 body{padding:16px;padding-bottom:48px}
 .wrap{max-width:640px;margin:0 auto}
 .header{margin-bottom:18px}
 .header h1{font-size:19px;margin:0}
 .header .sub{font-size:12px;color:var(--muted);margin-top:3px}
+.header{display:flex;justify-content:space-between;align-items:flex-start}
+.theme-toggle{
+  width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+  color:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0
+}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
 .card h2{font-size:13px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
-.card h3{font-size:14px;margin:14px 0 8px;color:#c8d3df}
+.card h3{font-size:14px;margin:14px 0 8px;color:var(--white)}
 .pistolet-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .pistolet-row label{flex:1;font-size:13.5px;color:var(--white)}
 .pistolet-row input{
-  width:130px;height:50px;background:#0c141c;border:1px solid var(--line);border-radius:10px;
-  color:white;font-size:20px;text-align:center;padding:0 8px;font-family:inherit
+  width:130px;height:50px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  color:var(--white);font-size:20px;text-align:center;padding:0 8px;font-family:inherit
 }
 .pistolet-row input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,105,255,.16)}
 .big-btn{
@@ -49,8 +55,8 @@ body{padding:16px;padding-bottom:48px}
 }
 .error-banner ul{margin:6px 0 0;padding-left:18px}
 .back{
-  display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:14px;font-weight:700;
-  text-decoration:none;height:52px;line-height:52px;border:1px solid var(--line);border-radius:12px
+  display:block;text-align:center;margin-top:16px;color:var(--white);font-size:14px;font-weight:700;
+  text-decoration:none;height:52px;line-height:52px;border:1px solid var(--line);border-radius:12px;background:var(--panel)
 }
 .wizard-progress{margin-bottom:16px}
 .wizard-track{height:6px;background:var(--panel);border:1px solid var(--line);border-radius:99px;overflow:hidden}
@@ -69,8 +75,13 @@ body{padding:16px;padding-bottom:48px}
 <div class="wrap">
 
   <div class="header">
-    <h1>{{ pompiste.nom_complet }}</h1>
-    <div class="sub">Relevé indépendant — vérification croisée</div>
+    <div>
+      <h1>{{ pompiste.nom_complet }}</h1>
+      <div class="sub">Relevé indépendant — vérification croisée</div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Changer de thème">
+      <span id="themeIcon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+    </button>
   </div>
 
   {% if erreurs %}
@@ -83,7 +94,7 @@ body{padding:16px;padding-bottom:48px}
   {% if a_fin_gerant %}
 
     <div class="card confirmation">
-      <div class="icon">✅</div>
+      <div class="icon"><svg viewBox="0 0 24 24" width="48" height="48" style="margin:0 auto;display:block;" stroke="var(--green)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
       <h2>Relevé complet</h2>
       <p>Votre relevé indépendant de départ et de fin est enregistré pour aujourd'hui.</p>
     </div>
@@ -185,5 +196,33 @@ body{padding:16px;padding-bottom:48px}
 
   <a class="back" href="{% url 'accounts:gerant_accueil' %}">Retour</a>
 </div>
+<script>
+(function(){
+  var toggle = document.getElementById('themeToggle');
+  var iconWrap = document.getElementById('themeIcon');
+  var iconSun = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  var iconMoon = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  function appliquerTheme(theme) {
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      iconWrap.innerHTML = iconMoon;
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      iconWrap.innerHTML = iconSun;
+    }
+  }
+
+  var stocke = localStorage.getItem('stationtrack_theme');
+  if (stocke) appliquerTheme(stocke);
+
+  toggle.addEventListener('click', function(){
+    var actuel = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    var nouveau = actuel === 'light' ? 'dark' : 'light';
+    appliquerTheme(nouveau);
+    localStorage.setItem('stationtrack_theme', nouveau);
+  });
+})();
+</script>
 </body>
 </html>
