@@ -22,4 +22,8 @@ urlpatterns = [
     path("admin/", views.admin_accueil, name="admin_accueil"),
     path("admin/stations/", views.admin_stations, name="admin_stations"),
     path("admin/stations/<int:station_id>/", views.admin_station_detail, name="admin_station_detail"),
+    path("admin/employes/", views.admin_employes, name="admin_employes"),
+    path("admin/employes/<int:employee_id>/toggle-actif/", views.admin_employe_toggle_actif, name="admin_employe_toggle_actif"),
+    path("admin/employes/<int:employee_id>/gerer/", views.admin_employe_gerer, name="admin_employe_gerer"),
+    path("admin/employes/<int:employee_id>/supprimer/", views.admin_employe_supprimer, name="admin_employe_supprimer"),
 ]

@@ -44,7 +44,7 @@ body{padding:16px;padding-bottom:48px}
   font-weight:800;font-size:16px;cursor:pointer;margin-top:8px;font-family:inherit
 }
 .error-banner{
-  background:var(--danger-bg);border:1px solid rgba(255,84,112,.32);color:#ffb3c0;
+  background:var(--danger-bg);border:1px solid rgba(255,84,112,.32);color:var(--st-red-text);
   border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px
 }
 .error-banner ul{margin:6px 0 0;padding-left:18px}
@@ -72,7 +72,7 @@ body{padding:16px;padding-bottom:48px}
   <div class="card">
     <h3>Détail par pistolet</h3>
     {% for groupe_pompe in structure %}
-      <div style="font-size:11px;color:var(--orange);margin:10px 0 6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Pompe {{ groupe_pompe.pompe.numero }}</div>
+      <div style="font-size:11px;color:var(--st-orange-text);margin:10px 0 6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Pompe {{ groupe_pompe.pompe.numero }}</div>
       <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px;">
         <thead>
           <tr style="border-bottom:1px solid var(--line);">

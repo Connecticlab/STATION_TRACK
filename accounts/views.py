@@ -769,7 +769,7 @@ def gerant_confronter(request, pompiste_id):
     from django.shortcuts import get_object_or_404
     from django.utils import timezone
 
-    from caisse.models import ReleveIndexGerant, SessionCaisse
+    from caisse.models import ReleveIndexGerant, ReleveIndexPompiste, SessionCaisse
     from caisse.services import appliquer_resultat_au_solde, confronter_session_caisse
     from stations.services import pistolets_affectes_a
 
@@ -791,10 +791,14 @@ def gerant_confronter(request, pompiste_id):
 
     alerte_dette = appliquer_resultat_au_solde(session, societe.seuil_alerte_dette_fcfa)
 
-    # Detail par pistolet EN FONCTION DU RELEVE DU GERANT (fait foi), pas du pompiste —
-    # meme composant que pompiste_finaliser/gerant_finaliser.
+    # Detail par pistolet : les DEUX relevés cote a cote (Gerant, qui fait foi, ET
+    # Pompiste, pour permettre de localiser precisement ou se situe une divergence —
+    # jamais seulement un total agrege en litres qui ne dit pas quel pistolet diverge).
     releves_gerant = ReleveIndexGerant.objects.filter(
         employee_pompiste=pompiste, date_heure__date=aujourdhui
+    )
+    releves_pompiste = ReleveIndexPompiste.objects.filter(
+        session_caisse=session
     )
     pistolets = pistolets_affectes_a(pompiste)
     structure = _structurer_pistolets_par_pompe_face(pistolets)
@@ -813,6 +817,19 @@ def gerant_confronter(request, pompiste_id):
                     pistolet.litres_vendus = releve_fin.valeur_index - releve_depart.valeur_index
                 else:
                     pistolet.litres_vendus = None
+
+                releve_depart_pompiste = releves_pompiste.filter(
+                    pistolet=pistolet, type_releve="depart"
+                ).first()
+                releve_fin_pompiste = releves_pompiste.filter(
+                    pistolet=pistolet, type_releve="fin"
+                ).first()
+                pistolet.index_depart_pompiste = releve_depart_pompiste.valeur_index if releve_depart_pompiste else None
+                pistolet.index_fin_pompiste = releve_fin_pompiste.valeur_index if releve_fin_pompiste else None
+                if releve_depart_pompiste and releve_fin_pompiste:
+                    pistolet.litres_vendus_pompiste = releve_fin_pompiste.valeur_index - releve_depart_pompiste.valeur_index
+                else:
+                    pistolet.litres_vendus_pompiste = None
 
     contexte = {
         "employee": employee,
@@ -1017,3 +1034,226 @@ def admin_station_detail(request, station_id):
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_station_detail.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_employes(request):
+    """Liste de TOUS les employes de la societe, avec filtre optionnel par station via
+    parametre GET — jamais une liste plate sans filtre pour une societe a plusieurs
+    stations (priorite n°4, exigence de scalabilite deja validee)."""
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+
+    stations = Station.objects.all().order_by("nom")
+
+    station_id_filtre = request.GET.get("station", "").strip()
+    employes = Employee.objects.select_related("station").order_by("station__nom", "nom_complet")
+
+    station_selectionnee = None
+    if station_id_filtre:
+        try:
+            station_selectionnee = stations.get(pk=station_id_filtre)
+            employes = employes.filter(station=station_selectionnee)
+        except Station.DoesNotExist:
+            pass
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "stations": stations,
+        "employes": employes,
+        "station_selectionnee": station_selectionnee,
+        "vue_active": "employes",
+    }
+    return render(request, "accounts/admin_employes.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_employe_toggle_actif(request, employee_id):
+    """Active/desactive un employe (bascule). Jamais de suppression ici — desactiver
+    coupe l'acces (actif=False deja utilise par employee_login), sans toucher a
+    l'historique. Action POST uniquement (effet de bord), jamais un simple lien GET."""
+    from django.shortcuts import get_object_or_404
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    if request.method != "POST":
+        return redirect("accounts:admin_employes")
+
+    cible = get_object_or_404(Employee, pk=employee_id)
+    cible.actif = not cible.actif
+    cible.save(update_fields=["actif"])
+
+    next_url = request.POST.get("next", "")
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(next_url)
+    return redirect("accounts:admin_employes")
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_employe_gerer(request, employee_id):
+    """Modification complete d'un employe : nom, telephone, role, station, mot de passe
+    (optionnel). Si l'employe a des affectations physiques actives (pompe/face) au moment
+    d'un changement de role/station, elles sont desaffectees AUTOMATIQUEMENT (jamais
+    silencieusement : le formulaire affiche un avertissement explicite avant validation,
+    et le resultat est confirme apres coup) — plus pratique qu'un blocage dur, tout en
+    evitant absolument qu'une Pompe/Face pointe vers un employe qui n'est plus sur
+    cette station ou n'est plus pompiste."""
+    from django.db import transaction
+    from django.shortcuts import get_object_or_404
+
+    from stations.models import Face, Pompe, Station
+
+    employee = request.employee
+    societe = request.societe
+    cible = get_object_or_404(Employee, pk=employee_id)
+    stations = Station.objects.all().order_by("nom")
+
+    a_des_affectations = (
+        Pompe.objects.filter(employee_affecte=cible).exists()
+        or Face.objects.filter(employee_affecte=cible).exists()
+    )
+
+    erreurs = []
+    desaffectation_effectuee = False
+
+    if request.method == "POST":
+        nouveau_nom = request.POST.get("nom_complet", "").strip()
+        nouveau_telephone = request.POST.get("telephone", "").strip()
+        nouveau_role = request.POST.get("role", "").strip()
+        nouveau_station_id = request.POST.get("station", "").strip()
+        nouveau_mot_de_passe = request.POST.get("nouveau_mot_de_passe", "").strip()
+
+        if not nouveau_nom:
+            erreurs.append("Le nom complet est obligatoire.")
+
+        if not nouveau_telephone:
+            erreurs.append("Le téléphone est obligatoire.")
+        elif Employee.objects.filter(telephone=nouveau_telephone).exclude(pk=cible.pk).exists():
+            erreurs.append("Ce numéro de téléphone est déjà utilisé par un autre employé.")
+
+        roles_valides = dict(Employee.ROLE_CHOICES)
+        if nouveau_role not in roles_valides:
+            erreurs.append("Rôle invalide.")
+
+        nouvelle_station = None
+        if nouveau_role != Employee.ADMIN_SIEGE:
+            if not nouveau_station_id:
+                erreurs.append("Une station est obligatoire pour ce rôle.")
+            else:
+                try:
+                    nouvelle_station = stations.get(pk=nouveau_station_id)
+                except Station.DoesNotExist:
+                    erreurs.append("Station invalide.")
+
+        if nouveau_mot_de_passe and len(nouveau_mot_de_passe) < 8:
+            erreurs.append("Le nouveau mot de passe doit contenir au moins 8 caractères.")
+
+        if not erreurs:
+            with transaction.atomic():
+                if a_des_affectations:
+                    Pompe.objects.filter(employee_affecte=cible).update(employee_affecte=None)
+                    Face.objects.filter(employee_affecte=cible).update(employee_affecte=None)
+                    desaffectation_effectuee = True
+
+                cible.nom_complet = nouveau_nom
+                cible.telephone = nouveau_telephone
+                cible.role = nouveau_role
+                cible.station = nouvelle_station
+                if nouveau_mot_de_passe:
+                    cible.set_password(nouveau_mot_de_passe)
+                cible.save()
+
+            url_confirmation = request.path + "?succes=1"
+            if desaffectation_effectuee:
+                url_confirmation += "&desaffecte=1"
+            return redirect(url_confirmation)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "cible": cible,
+        "stations": stations,
+        "a_des_affectations": a_des_affectations,
+        "desaffectation_effectuee": desaffectation_effectuee,
+        "erreurs": erreurs,
+        "vue_active": "employes",
+    }
+    return render(request, "accounts/admin_employe_gerer.html", contexte)
+
+
+def _raisons_blocage_suppression_employe(cible):
+    """Verification EXHAUSTIVE de toute donnee referencant cet employe, avant toute
+    tentative de suppression — jamais une IntegrityError brute capturee apres coup.
+    Couvre les 6 modeles avec PROTECT vers Employee (SessionCaisse, ReleveIndexPompiste,
+    ReleveIndexGerant via ses deux FK, DepotBancaire, DepenseCaisse), PLUS EcritureSolde
+    qui n'est techniquement PAS protegee (CASCADE via SoldePompiste) mais doit quand
+    meme bloquer la suppression pour preserver l'immutabilite du livre de comptes —
+    principe deja pose des la conception de ce modele. Retourne une liste de raisons
+    lisibles, vide si la suppression est possible."""
+    from caisse.models import (
+        DepenseCaisse,
+        DepotBancaire,
+        EcritureSolde,
+        ReleveIndexGerant,
+        ReleveIndexPompiste,
+        SessionCaisse,
+        SoldePompiste,
+    )
+    from stations.models import Face, Pompe
+
+    raisons = []
+
+    if SessionCaisse.objects.filter(employee=cible).exists():
+        raisons.append("des sessions de caisse enregistrées")
+    if ReleveIndexPompiste.objects.filter(employee=cible).exists():
+        raisons.append("des relevés d'index en tant que pompiste")
+    if ReleveIndexGerant.objects.filter(employee=cible).exists():
+        raisons.append("des relevés d'index en tant que Gérant/Chef de piste")
+    if ReleveIndexGerant.objects.filter(employee_pompiste=cible).exists():
+        raisons.append("des relevés de vérification le concernant en tant que pompiste vérifié")
+    if DepotBancaire.objects.filter(employee=cible).exists():
+        raisons.append("des dépôts bancaires enregistrés")
+    if DepenseCaisse.objects.filter(employee=cible).exists():
+        raisons.append("des dépenses de caisse enregistrées")
+
+    solde = SoldePompiste.objects.filter(employee=cible).first()
+    if solde is not None and EcritureSolde.objects.filter(solde_pompiste=solde).exists():
+        raisons.append("des écritures dans son livre de solde (avoir/dette)")
+
+    if Pompe.objects.filter(employee_affecte=cible).exists() or Face.objects.filter(employee_affecte=cible).exists():
+        raisons.append("des affectations physiques actives (pompe ou face)")
+
+    return raisons
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_employe_supprimer(request, employee_id):
+    """Suppression definitive d'un employe — reservee aux cas ou AUCUNE donnee ne le
+    reference (verification exhaustive via _raisons_blocage_suppression_employe).
+    Deux etapes : GET affiche la confirmation (avec les raisons de blocage le cas
+    echeant), POST avec confirmation explicite effectue la suppression."""
+    from django.shortcuts import get_object_or_404
+
+    employee = request.employee
+    societe = request.societe
+    cible = get_object_or_404(Employee, pk=employee_id)
+
+    raisons_blocage = _raisons_blocage_suppression_employe(cible)
+
+    if request.method == "POST" and not raisons_blocage:
+        if request.POST.get("confirmer") == "oui":
+            cible.delete()
+            return redirect("accounts:admin_employes")
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "cible": cible,
+        "raisons_blocage": raisons_blocage,
+        "vue_active": "employes",
+    }
+    return render(request, "accounts/admin_employe_supprimer.html", contexte)

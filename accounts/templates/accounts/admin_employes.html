@@ -1,0 +1,61 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — Utilisateurs{% endblock %}
+
+{% block extra_style %}
+.filter-bar{display:flex;gap:10px;align-items:center;margin-bottom:14px}
+.filter-bar select{
+  background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;
+  padding:8px 12px;font-size:12px;font-family:inherit
+}
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Utilisateurs</h1>
+      <p>{{ employes|length }} employé(s){% if station_selectionnee %} — {{ station_selectionnee.nom }}{% endif %}</p>
+    </div>
+  </div>
+
+  <form method="get" class="filter-bar">
+    <select name="station" onchange="this.form.submit()">
+      <option value="">Toutes les stations</option>
+      {% for station in stations %}
+        <option value="{{ station.pk }}" {% if station_selectionnee.pk == station.pk %}selected{% endif %}>{{ station.nom }}</option>
+      {% endfor %}
+    </select>
+  </form>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>Nom</th><th>Téléphone</th><th>Rôle</th><th>Station</th><th>Statut</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for employe in employes %}
+        <tr>
+          <td>{{ employe.nom_complet }}</td>
+          <td>{{ employe.telephone }}</td>
+          <td>{{ employe.get_role_display }}</td>
+          <td>{{ employe.station.nom|default:"—" }}</td>
+          <td>{% if employe.actif %}<span class="status">Actif</span>{% else %}<span class="status muted">Inactif</span>{% endif %}</td>
+          <td style="display:flex;gap:6px;">
+            <a href="{% url 'accounts:admin_employe_gerer' employe.pk %}" class="action" style="padding:6px 12px;font-size:9.5px;border-color:var(--blue);color:var(--blue);">Gérer</a>
+            <form method="post" action="{% url 'accounts:admin_employe_toggle_actif' employe.pk %}">
+              {% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
+              {% if employe.actif %}
+                <button type="submit" class="action" style="padding:6px 12px;font-size:9.5px;border-color:var(--red);color:var(--red);">Désactiver</button>
+              {% else %}
+                <button type="submit" class="action" style="padding:6px 12px;font-size:9.5px;border-color:var(--green);color:var(--green);">Activer</button>
+              {% endif %}
+            </form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" style="color:var(--muted);text-align:center;">Aucun employé trouvé.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

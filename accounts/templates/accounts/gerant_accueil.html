@@ -24,7 +24,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans
 .brand{display:flex;gap:10px;align-items:center;padding:2px 8px 20px}
 .brandlogo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--blue),#0c48bd);display:grid;place-items:center;font-size:20px}
 .brand b{font-size:14px;letter-spacing:-.01em}
-.brand b .accent{color:var(--orange)}
+.brand b .accent{color:var(--st-orange-text)}
 .brand small{display:block;color:var(--muted);font-size:9px;margin-top:3px}
 .stationbox{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:11px;margin-bottom:13px}
 .stationbox label{font-size:8px;color:var(--muted);text-transform:uppercase}
@@ -199,7 +199,7 @@ td{padding:10px 9px;border-bottom:1px solid var(--line)}
           </div>
           <div class="card kpi">
             <div class="label">En cours</div>
-            <div class="val" style="color:var(--orange)">{{ nb_en_cours }}</div>
+            <div class="val" style="color:var(--st-orange-text)">{{ nb_en_cours }}</div>
             <div class="hint orange">Caisse ouverte aujourd'hui</div>
           </div>
           <div class="card kpi">
