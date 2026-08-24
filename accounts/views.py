@@ -43,8 +43,7 @@ def _url_apres_connexion(employee):
         return redirect("accounts:pompiste_accueil")
     if employee.role in (Employee.CHEF_DE_PISTE, Employee.GERANT):
         return redirect("accounts:gerant_accueil")
-    # Admin Siege : redirection provisoire, sa vue dediee n'existe pas encore (priorite n°4).
-    return redirect("accounts:login")
+    return redirect("accounts:admin_accueil")
 
 
 def employee_logout(request):
@@ -906,3 +905,61 @@ def gerant_finaliser(request, pompiste_id):
         "erreurs": erreurs,
     }
     return render(request, "accounts/gerant_finaliser.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_accueil(request):
+    """Tableau de bord Admin Siege : vue consolidee sur TOUTES les stations de la
+    societe (pas une seule, contrairement a gerant_accueil) — c'est le differenciateur
+    principal de la plateforme, la visibilite que le siege n'avait jamais eu avant.
+    Uniquement des donnees REELLES deja construites — aucune section fictive (pas de
+    ventes unitaires, stocks, finance, abonnement : jamais construits)."""
+    from django.utils import timezone
+
+    from caisse.models import SessionCaisse, SoldePompiste
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+    aujourdhui = timezone.localtime(timezone.now()).date()
+
+    stations = Station.objects.filter(actif=True)
+    nb_stations_actives = stations.count()
+    nb_stations_total = Station.objects.count()
+
+    nb_employes = Employee.objects.filter(actif=True).count()
+
+    sessions_jour = SessionCaisse.objects.filter(date=aujourdhui)
+    ca_jour = sum(
+        s.montant_encaisse for s in sessions_jour if s.montant_encaisse is not None
+    ) or 0
+
+    nb_manquant = sessions_jour.filter(resultat=SessionCaisse.MANQUANT).count()
+    nb_surplus = sessions_jour.filter(resultat=SessionCaisse.SURPLUS).count()
+    nb_exact = sessions_jour.filter(resultat=SessionCaisse.EXACT).count()
+
+    nb_divergences_jour = sessions_jour.filter(divergence_signalee=True).count()
+
+    # Dettes au-dela du seuil d'alerte de la societe — meme logique que
+    # appliquer_resultat_au_solde, mais releve ici, pas declenche.
+    pompistes_en_dette = []
+    for solde in SoldePompiste.objects.select_related("employee").filter(solde_courant__lt=0):
+        if abs(solde.solde_courant) > societe.seuil_alerte_dette_fcfa:
+            pompistes_en_dette.append(solde)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "aujourdhui": aujourdhui,
+        "stations": stations,
+        "nb_stations_actives": nb_stations_actives,
+        "nb_stations_total": nb_stations_total,
+        "nb_employes": nb_employes,
+        "ca_jour": ca_jour,
+        "nb_manquant": nb_manquant,
+        "nb_surplus": nb_surplus,
+        "nb_exact": nb_exact,
+        "nb_divergences_jour": nb_divergences_jour,
+        "pompistes_en_dette": pompistes_en_dette,
+    }
+    return render(request, "accounts/admin_accueil.html", contexte)
