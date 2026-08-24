@@ -1,0 +1,53 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — {{ station.nom }}{% endblock %}
+
+{% block extra_style %}
+table td + td, table th + th { border-left: 1px solid var(--line); }
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>{{ station.nom }}</h1>
+      <p>{{ station.adresse|default:"Adresse non renseignée" }} — {% if station.actif %}<span style="color:var(--green)">Active</span>{% else %}<span style="color:var(--muted)">Inactive</span>{% endif %}</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Détail par pompe</h3>
+    {% for groupe_pompe in structure %}
+      <div style="font-size:11px;color:var(--orange);margin:12px 0 6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Pompe {{ groupe_pompe.pompe.numero }}</div>
+      {% for groupe_face in groupe_pompe.faces %}
+        <div style="font-size:10.5px;color:var(--muted);margin:6px 0 4px;">Face {{ groupe_face.face.numero }}</div>
+        <table style="margin-bottom:10px;">
+          <thead>
+            <tr>
+              <th>Carburant</th>
+              <th>Numéro</th>
+              <th>Statut</th>
+              <th>Affectation</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for pistolet in groupe_face.pistolets %}
+              <tr>
+                <td>{{ pistolet.get_carburant_display }}</td>
+                <td>{{ pistolet.numero }}</td>
+                <td>{% if pistolet.actif %}<span class="status">Actif</span>{% else %}<span class="status muted">Inactif</span>{% endif %}</td>
+                <td>
+                  {% if groupe_pompe.pompe.employee_affecte %}{{ groupe_pompe.pompe.employee_affecte.nom_complet }}
+                  {% elif groupe_face.face.employee_affecte %}{{ groupe_face.face.employee_affecte.nom_complet }}
+                  {% else %}<span style="color:var(--muted)">Non affecté</span>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endfor %}
+    {% empty %}
+      <p style="color:var(--muted);">Aucun pistolet enregistré pour cette station.</p>
+    {% endfor %}
+  </div>
+{% endblock %}

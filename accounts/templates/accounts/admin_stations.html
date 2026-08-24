@@ -1,0 +1,32 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — Stations service{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Stations service</h1>
+      <p>{{ lignes|length }} station(s) enregistrée(s) pour <b>{{ societe.nom }}</b></p>
+    </div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead><tr><th>Nom</th><th>Adresse</th><th>Statut</th><th>Pompes</th><th>Pistolets</th></tr></thead>
+      <tbody>
+        {% for ligne in lignes %}
+        <tr class="clickable" onclick="window.location.href='{% url 'accounts:admin_station_detail' ligne.station.pk %}'">
+          <td>{{ ligne.station.nom }}</td>
+          <td>{{ ligne.station.adresse|default:"—" }}</td>
+          <td>{% if ligne.station.actif %}<span class="status">Active</span>{% else %}<span class="status muted">Inactive</span>{% endif %}</td>
+          <td>{{ ligne.nb_pompes }}</td>
+          <td>{{ ligne.nb_pistolets }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" style="color:var(--muted);text-align:center;">Aucune station enregistrée.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

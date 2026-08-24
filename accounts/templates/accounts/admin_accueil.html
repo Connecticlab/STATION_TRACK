@@ -1,313 +1,87 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StationTrack — Admin Siège</title>
+{% extends "accounts/admin_base.html" %}
 {% load formatage %}
-<link rel="stylesheet" href="/static/css/design-system.css">
-<style>
-:root{
-  --bg:var(--st-bg);--panel:var(--st-panel);--panel2:var(--st-panel-2);--line:var(--st-line);
-  --blue:var(--st-blue);--orange:var(--st-orange);--green:var(--st-green);--red:var(--st-red);--yellow:#ffbd4a;
-  --text:var(--st-text);--muted:var(--st-muted);
-}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-sans);transition:background .2s ease,color .2s ease}
-.app{display:flex;min-height:100vh}
 
-/* ---------- Sidebar ---------- */
-.side{
-  width:245px;position:fixed;inset:0 auto 0 0;background:linear-gradient(180deg,var(--bg),var(--panel2));
-  border-right:1px solid var(--line);padding:18px 13px;overflow:auto;z-index:40;transition:transform .25s ease
-}
-.brand{display:flex;gap:10px;align-items:center;padding:2px 8px 20px}
-.brandlogo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--blue),#0c48bd);display:grid;place-items:center;font-size:20px}
-.brand b{font-size:14px;letter-spacing:-.01em}
-.brand b .accent{color:var(--orange)}
-.brand small{display:block;color:var(--muted);font-size:9px;margin-top:3px}
-.stationbox{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:11px;margin-bottom:13px}
-.stationbox label{font-size:8px;color:var(--muted);text-transform:uppercase}
-.stationbox strong{display:block;margin-top:5px;font-size:12px}
-.nav{display:grid;gap:4px}
-.nav button{border:0;background:transparent;color:var(--muted);text-align:left;border-radius:9px;padding:11px 12px;font-size:12px;font-weight:600;display:flex;gap:10px;align-items:center;cursor:pointer;width:100%;font-family:inherit}
-.nav button:hover{background:#ffffff08}
-.nav button.active{background:linear-gradient(90deg,var(--blue),#0c55d8);color:white}
-.nav i{font-style:normal;width:19px;display:inline-flex;align-items:center;justify-content:center}
-.nav i svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.sep{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding:14px 11px 6px}
-.profile{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px}
-.avatar{width:34px;height:34px;border-radius:50%;background:#e8edf4;color:#111;display:grid;place-items:center;font-weight:800;font-size:12px}
-.pro{display:flex;gap:9px;align-items:center}
-.profile small{color:var(--muted);font-size:9px;display:block}
-.online{color:var(--green);font-size:9px;margin-top:8px}
-.theme-toggle{
-  width:100%;margin-top:12px;padding:9px 10px;border-radius:8px;border:1px solid var(--line);
-  background:var(--panel);color:var(--muted);font-size:10.5px;font-weight:700;cursor:pointer;
-  display:flex;align-items:center;justify-content:center;gap:7px;font-family:inherit
-}
-.theme-toggle:hover{border-color:var(--blue)}
+{% block title %}StationTrack — Tableau de bord Admin Siège{% endblock %}
 
-/* ---------- Main ---------- */
-.main{margin-left:245px;width:calc(100% - 245px)}
-.top{height:60px;border-bottom:1px solid var(--line);background:var(--bg);display:flex;align-items:center;padding:0 20px;gap:14px;position:sticky;top:0;z-index:20}
-.hamburger{display:none;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:9px;padding:9px 11px;cursor:pointer}
-.fill{flex:1}
-.logoutbtn{
-  border:none;background:var(--orange);color:white;border-radius:9px;padding:9px 15px;font-size:11px;
-  text-decoration:none;font-weight:700;display:inline-flex;align-items:center;gap:6px
-}
-.logoutbtn:hover{opacity:.9}
-.logoutbtn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.content{padding:22px;max-width:1400px;margin:auto}
-.head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:18px;flex-wrap:wrap}
-.head h1{font-size:21px;margin:0 0 5px}
-.head p{font-size:11px;color:var(--muted);margin:0}
-.date{border:1px solid var(--line);background:var(--panel);padding:9px 12px;border-radius:9px;font-size:10px;white-space:nowrap}
-
-/* ---------- Grid / cards ---------- */
-.view{display:none}
-.view.active{display:block}
-.grid{display:grid;gap:13px}
-.kpis{grid-template-columns:repeat(5,1fr)}
-.card{background:linear-gradient(145deg,var(--panel),var(--panel));border:1px solid var(--line);border-radius:11px;padding:16px;box-shadow:0 12px 35px #0005}
-.kpi{min-height:100px}
-.label{color:var(--muted);font-size:9px;text-transform:uppercase;font-weight:800;letter-spacing:.3px}
-.val{font-size:21px;font-weight:800;margin:9px 0 5px}
-.hint{font-size:9.5px;color:var(--muted)}
-.hint.blue{color:var(--st-blue-text)}
-.hint.orange{color:var(--st-orange-text)}
-.hint.green{color:var(--st-green-text)}
-.hint.red{color:var(--red)}
-.cols3{grid-template-columns:1.3fr 1fr 1fr}
-.card h3{font-size:13px;margin:0 0 14px}
-
-.alert{padding:10px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:var(--panel);font-size:10.5px}
-.alert strong{display:block;font-size:12px}
-.alert small{display:block;color:var(--muted);margin-top:4px}
-.alert.red{border-left:3px solid var(--red)}
-.alert.orange{border-left:3px solid var(--orange)}
-.alert.green{border-left:3px solid var(--green)}
-.alert.muted{border-left:3px solid #3a434e}
-
-table{width:100%;border-collapse:collapse;font-size:11px}
-th{color:var(--muted);text-transform:uppercase;font-size:8.5px;text-align:left;padding:9px;border-bottom:1px solid var(--line)}
-td{padding:10px 9px;border-bottom:1px solid var(--line)}
-.status{font-size:8.5px;padding:4px 8px;border-radius:99px;background:#103b2b;color:#52dfa0;font-weight:700}
-.status.orange{background:#402813;color:#ffb15c}
-.status.muted{background:var(--line);color:var(--muted)}
-
-.soon-box{padding:70px 20px;text-align:center}
-.soon-box .icon{margin-bottom:14px;opacity:.6}
-.soon-box h2{font-size:17px;margin:0 0 8px}
-.soon-box p{color:var(--muted);font-size:12px;margin:0}
-
-.backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:30}
-
-@media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.cols3{grid-template-columns:1fr}}
-@media(max-width:900px){
-  .side{transform:translateX(-100%)}
-  .side.open{transform:translateX(0)}
-  .main{margin-left:0;width:100%}
-  .hamburger{display:block}
-  .backdrop.open{display:block}
-  .kpis{grid-template-columns:1fr 1fr}
-  .content{padding:14px}
-}
-</style>
-</head>
-<body>
-<div class="app">
-
-  <div class="backdrop" id="backdrop" onclick="closeSidebar()"></div>
-
-  <aside class="side" id="sidebar">
-    <div class="brand">
-      <div class="brandlogo"><svg viewBox="0 0 24 24" width="22" height="22" stroke="white" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C12 2 5 10.5 5 15a7 7 0 0 0 14 0c0-4.5-7-13-7-13z"/></svg></div>
-      <div><b>Station<span class="accent">Track</span></b><small>MANAGEMENT PLATFORM</small></div>
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Bonjour, {{ employee.nom_complet }}</h1>
+      <p>Vue consolidée de <b>{{ societe.nom }}</b> — toutes stations</p>
     </div>
-    <div class="stationbox">
-      <label>Société connectée</label>
-      <strong>{{ societe.nom }}</strong>
+    <div class="date"><svg viewBox="0 0 24 24" width="12" height="12" style="vertical-align:-2px;margin-right:4px;" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>{{ aujourdhui|date:"l d F Y" }}</div>
+  </div>
+
+  <div class="grid kpis">
+    <div class="card kpi">
+      <div class="label">CA aujourd'hui</div>
+      <div class="val">{{ ca_jour|fcfa }}</div>
+      <div class="hint">Toutes stations confondues</div>
     </div>
-    <nav class="nav">
-      <button class="active" data-v="dash"><i><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></i><span>Tableau de bord</span></button>
-      <button data-v="soon" data-label="Stations service"><i><svg viewBox="0 0 24 24"><path d="M12 2C12 2 5 10.5 5 15a7 7 0 0 0 14 0c0-4.5-7-13-7-13z"/></svg></i><span>Stations service</span></button>
-      <button data-v="soon" data-label="Utilisateurs"><i><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></i><span>Utilisateurs</span></button>
-      <button data-v="soon" data-label="Carburants &amp; Prix"><i><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></i><span>Carburants &amp; Prix</span></button>
-      <button data-v="soon" data-label="Ventes &amp; Transactions"><i><svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></i><span>Ventes &amp; Transactions</span></button>
-      <button data-v="soon" data-label="Stocks &amp; Approvisionnements"><i><svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg></i><span>Stocks</span></button>
-      <div class="sep">Pilotage</div>
-      <button data-v="soon" data-label="Finance"><i><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></i><span>Finance</span></button>
-      <button data-v="soon" data-label="Rapports"><i><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></i><span>Rapports</span></button>
-      <button data-v="soon" data-label="Abonnement"><i><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></i><span>Abonnement</span></button>
-      <button data-v="soon" data-label="Paramètres"><i><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></i><span>Paramètres</span></button>
-      <button data-v="soon" data-label="Support"><i><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></i><span>Support</span></button>
-    </nav>
-    <div class="profile">
-      <div class="pro">
-        <div class="avatar">{{ employee.nom_complet|slice:":2"|upper }}</div>
-        <div><b style="font-size:10px">{{ employee.nom_complet }}</b><small>{{ employee.get_role_display }}</small></div>
-      </div>
-      <div class="online">● En ligne</div>
-      <button class="theme-toggle" id="themeToggle" type="button">
-        <span id="themeIcon" style="display:inline-flex;width:15px;height:15px;">
-          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-        </span>
-        <span id="themeLabel">Mode clair</span>
-      </button>
+    <div class="card kpi">
+      <div class="label">Stations actives</div>
+      <div class="val">{{ nb_stations_actives }}<span style="font-size:12px;color:var(--muted)">/{{ nb_stations_total }}</span></div>
+      <div class="hint">Stations en service</div>
     </div>
-  </aside>
-
-  <main class="main">
-    <header class="top">
-      <button class="hamburger" onclick="openSidebar()"><svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
-      <div class="fill"></div>
-      <a class="logoutbtn" href="{% url 'accounts:logout' %}"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Déconnexion</a>
-    </header>
-
-    <div class="content">
-
-      <section id="dash" class="view active">
-        <div class="head">
-          <div>
-            <h1>Bonjour, {{ employee.nom_complet }}</h1>
-            <p>Vue consolidée de <b>{{ societe.nom }}</b> — toutes stations</p>
-          </div>
-          <div class="date"><svg viewBox="0 0 24 24" width="12" height="12" style="vertical-align:-2px;margin-right:4px;" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>{{ aujourdhui|date:"l d F Y" }}</div>
-        </div>
-
-        <div class="grid kpis">
-          <div class="card kpi">
-            <div class="label">CA aujourd'hui</div>
-            <div class="val">{{ ca_jour|fcfa }}</div>
-            <div class="hint">Toutes stations confondues</div>
-          </div>
-          <div class="card kpi">
-            <div class="label">Stations actives</div>
-            <div class="val">{{ nb_stations_actives }}<span style="font-size:12px;color:var(--muted)">/{{ nb_stations_total }}</span></div>
-            <div class="hint">Stations en service</div>
-          </div>
-          <div class="card kpi">
-            <div class="label">Employés</div>
-            <div class="val">{{ nb_employes }}</div>
-            <div class="hint">Actifs sur la société</div>
-          </div>
-          <div class="card kpi">
-            <div class="label">Divergences</div>
-            <div class="val" style="color:{% if nb_divergences_jour > 0 %}var(--orange){% else %}var(--muted){% endif %}">{{ nb_divergences_jour }}</div>
-            <div class="hint">Signalées aujourd'hui</div>
-          </div>
-          <div class="card kpi">
-            <div class="label">Dettes en alerte</div>
-            <div class="val" style="color:{% if pompistes_en_dette %}var(--red){% else %}var(--muted){% endif %}">{{ pompistes_en_dette|length }}</div>
-            <div class="hint red">Pompiste(s) au-delà du seuil</div>
-          </div>
-        </div>
-
-        <div class="grid cols3" style="margin-top:13px">
-          <div class="card">
-            <h3>Résultats de confrontation aujourd'hui</h3>
-            <table>
-              <thead><tr><th>Résultat</th><th>Nombre de sessions</th></tr></thead>
-              <tbody>
-                <tr><td><span class="status">Exact</span></td><td>{{ nb_exact }}</td></tr>
-                <tr><td><span class="status orange">Surplus</span></td><td>{{ nb_surplus }}</td></tr>
-                <tr><td><span class="status" style="background:rgba(255,84,112,.14);color:var(--red)">Manquant</span></td><td>{{ nb_manquant }}</td></tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="card">
-            <h3>Alertes</h3>
-            {% if pompistes_en_dette %}
-              {% for solde in pompistes_en_dette %}
-                <div class="alert red"><strong>{{ solde.employee.nom_complet }}</strong><small>Dette : {{ solde.solde_courant|fcfa }}</small></div>
-              {% endfor %}
-            {% endif %}
-            {% if nb_divergences_jour > 0 %}
-              <div class="alert orange"><strong>{{ nb_divergences_jour }} divergence(s) signalée(s)</strong><small>Écart au-delà de la marge de tolérance aujourd'hui</small></div>
-            {% endif %}
-            {% if not pompistes_en_dette and nb_divergences_jour == 0 %}
-              <div class="alert green"><strong>Aucune alerte</strong><small>Rien à signaler aujourd'hui</small></div>
-            {% endif %}
-          </div>
-
-          <div class="card">
-            <h3>Stations</h3>
-            <table>
-              <thead><tr><th>Nom</th><th>Statut</th></tr></thead>
-              <tbody>
-                {% for station in stations %}
-                <tr><td>{{ station.nom }}</td><td><span class="status">Active</span></td></tr>
-                {% empty %}
-                <tr><td colspan="2" style="color:var(--muted);text-align:center;">Aucune station active.</td></tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section id="soon" class="view">
-        <div class="soon-box">
-          <div class="icon"><svg viewBox="0 0 24 24" width="38" height="38" style="margin:0 auto;display:block;" stroke="currentColor" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-          <h2 id="soonTitle">Fonctionnalité à venir</h2>
-          <p>Cette section n'est pas encore disponible dans StationTrack. Revenez bientôt !</p>
-        </div>
-      </section>
-
+    <div class="card kpi">
+      <div class="label">Employés</div>
+      <div class="val">{{ nb_employes }}</div>
+      <div class="hint">Actifs sur la société</div>
     </div>
-  </main>
-</div>
+    <div class="card kpi">
+      <div class="label">Divergences</div>
+      <div class="val" style="color:{% if nb_divergences_jour > 0 %}var(--orange){% else %}var(--muted){% endif %}">{{ nb_divergences_jour }}</div>
+      <div class="hint">Signalées aujourd'hui</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Dettes en alerte</div>
+      <div class="val" style="color:{% if pompistes_en_dette %}var(--red){% else %}var(--muted){% endif %}">{{ pompistes_en_dette|length }}</div>
+      <div class="hint red">Pompiste(s) au-delà du seuil</div>
+    </div>
+  </div>
 
-<script>
-const buttons = document.querySelectorAll('.nav button');
-const views = document.querySelectorAll('.view');
-const sidebar = document.getElementById('sidebar');
-const backdrop = document.getElementById('backdrop');
+  <div class="grid cols3" style="margin-top:13px">
+    <div class="card">
+      <h3>Résultats de confrontation aujourd'hui</h3>
+      <table>
+        <thead><tr><th>Résultat</th><th>Nombre de sessions</th></tr></thead>
+        <tbody>
+          <tr><td><span class="status">Exact</span></td><td>{{ nb_exact }}</td></tr>
+          <tr><td><span class="status orange">Surplus</span></td><td>{{ nb_surplus }}</td></tr>
+          <tr><td><span class="status" style="background:rgba(255,84,112,.14);color:var(--red)">Manquant</span></td><td>{{ nb_manquant }}</td></tr>
+        </tbody>
+      </table>
+    </div>
 
-function go(id, label) {
-  buttons.forEach(b => b.classList.toggle('active', b.dataset.v === id && (id !== 'soon' || b.dataset.label === label)));
-  views.forEach(v => v.classList.toggle('active', v.id === id));
-  if (id === 'soon' && label) {
-    document.getElementById('soonTitle').textContent = label;
-  }
-  window.scrollTo({top: 0, behavior: 'smooth'});
-  closeSidebar();
-}
+    <div class="card">
+      <h3>Alertes</h3>
+      {% if pompistes_en_dette %}
+        {% for solde in pompistes_en_dette %}
+          <div class="alert red"><strong>{{ solde.employee.nom_complet }}</strong><small>Dette : {{ solde.solde_courant|fcfa }}</small></div>
+        {% endfor %}
+      {% endif %}
+      {% if nb_divergences_jour > 0 %}
+        <div class="alert orange"><strong>{{ nb_divergences_jour }} divergence(s) signalée(s)</strong><small>Écart au-delà de la marge de tolérance aujourd'hui</small></div>
+      {% endif %}
+      {% if not pompistes_en_dette and nb_divergences_jour == 0 %}
+        <div class="alert green"><strong>Aucune alerte</strong><small>Rien à signaler aujourd'hui</small></div>
+      {% endif %}
+    </div>
 
-function openSidebar() { sidebar.classList.add('open'); backdrop.classList.add('open'); }
-function closeSidebar() { sidebar.classList.remove('open'); backdrop.classList.remove('open'); }
-
-buttons.forEach(b => b.onclick = () => go(b.dataset.v, b.dataset.label));
-
-const themeToggle = document.getElementById('themeToggle');
-const themeLabel = document.getElementById('themeLabel');
-const themeIconSun = '<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
-const themeIconMoon = '<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
-
-function appliquerTheme(theme) {
-  if (theme === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-    themeLabel.textContent = 'Mode sombre';
-    document.getElementById('themeIcon').innerHTML = themeIconMoon;
-  } else {
-    document.documentElement.removeAttribute('data-theme');
-    themeLabel.textContent = 'Mode clair';
-    document.getElementById('themeIcon').innerHTML = themeIconSun;
-  }
-}
-
-const themeStocke = localStorage.getItem('stationtrack_theme');
-if (themeStocke) appliquerTheme(themeStocke);
-
-themeToggle.addEventListener('click', () => {
-  const actuel = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-  const nouveau = actuel === 'light' ? 'dark' : 'light';
-  appliquerTheme(nouveau);
-  localStorage.setItem('stationtrack_theme', nouveau);
-});
-</script>
-</body>
-</html>
+    <div class="card">
+      <h3>Stations</h3>
+      <table>
+        <thead><tr><th>Nom</th><th>Statut</th></tr></thead>
+        <tbody>
+          {% for station in stations %}
+          <tr class="clickable" onclick="window.location.href='{% url 'accounts:admin_station_detail' station.pk %}'">
+            <td>{{ station.nom }}</td><td><span class="status">Active</span></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="2" style="color:var(--muted);text-align:center;">Aucune station active.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

@@ -20,4 +20,6 @@ urlpatterns = [
     path("gerant/finaliser/<int:pompiste_id>/", views.gerant_finaliser, name="gerant_finaliser"),
     path("gerant/confronter/<int:pompiste_id>/", views.gerant_confronter, name="gerant_confronter"),
     path("admin/", views.admin_accueil, name="admin_accueil"),
+    path("admin/stations/", views.admin_stations, name="admin_stations"),
+    path("admin/stations/<int:station_id>/", views.admin_station_detail, name="admin_station_detail"),
 ]

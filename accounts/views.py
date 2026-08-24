@@ -961,5 +961,59 @@ def admin_accueil(request):
         "nb_exact": nb_exact,
         "nb_divergences_jour": nb_divergences_jour,
         "pompistes_en_dette": pompistes_en_dette,
+        "vue_active": "dashboard",
     }
     return render(request, "accounts/admin_accueil.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_stations(request):
+    """Liste de TOUTES les stations de la societe, avec le nombre reel de pompes et de
+    pistolets pour chacune — pas de scalabilite illimitee dans cette premiere version
+    (pas de pagination), a revoir si un client depasse une dizaine de stations."""
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+
+    stations = Station.objects.all().order_by("nom")
+    from stations.models import Pistolet
+
+    lignes = []
+    for station in stations:
+        nb_pompes = station.pompes.count()
+        nb_pistolets = Pistolet.objects.filter(face__pompe__station=station).count()
+        lignes.append({"station": station, "nb_pompes": nb_pompes, "nb_pistolets": nb_pistolets})
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "lignes": lignes,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_stations.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_station_detail(request, station_id):
+    """Detail d'UNE station : toutes ses pompes/faces/pistolets, structures (jamais une
+    liste plate), reutilise le meme helper que les ecrans Pompiste/Gerant."""
+    from django.shortcuts import get_object_or_404
+
+    from stations.models import Pistolet, Station
+
+    employee = request.employee
+    societe = request.societe
+    station = get_object_or_404(Station, pk=station_id)
+
+    pistolets = Pistolet.objects.filter(face__pompe__station=station)
+    structure = _structurer_pistolets_par_pompe_face(pistolets)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "station": station,
+        "structure": structure,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_station_detail.html", contexte)
