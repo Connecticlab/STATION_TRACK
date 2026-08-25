@@ -1,0 +1,51 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — Nouvelle pompe{% endblock %}
+
+{% block extra_style %}
+.error-banner{
+  background:var(--st-red-bg);border:1px solid rgba(255,84,112,.32);color:var(--st-red-text);
+  border-radius:9px;padding:12px 14px;font-size:13px;margin-bottom:20px;max-width:600px
+}
+.error-banner ul{margin:6px 0 0;padding-left:18px}
+.face-block{border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+.face-block h4{margin:0 0 12px;font-size:13px;color:var(--st-orange-text);text-transform:uppercase;letter-spacing:.5px}
+.checkbox-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px}
+.checkbox-row input{width:18px;height:18px}
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Nouvelle pompe</h1>
+      <p>Ajouter une pompe à <b>{{ station.nom }}</b></p>
+    </div>
+  </div>
+
+  {% if erreurs %}
+  <div class="error-banner">
+    <ul>{% for e in erreurs %}<li>{{ e }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <div class="card" style="max-width:600px">
+    <form method="post">
+      {% csrf_token %}
+
+      <div class="face-block">
+        <h4>Face 1 (obligatoire)</h4>
+        <label class="checkbox-row"><input type="checkbox" name="face1_gasoil"> Gasoil</label>
+        <label class="checkbox-row"><input type="checkbox" name="face1_essence"> Essence</label>
+      </div>
+
+      <div class="face-block">
+        <h4>Face 2 (facultative)</h4>
+        <label class="checkbox-row"><input type="checkbox" name="face2_gasoil"> Gasoil</label>
+        <label class="checkbox-row"><input type="checkbox" name="face2_essence"> Essence</label>
+      </div>
+
+      <button type="submit" class="action big" style="max-width:200px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Créer la pompe</button>
+    </form>
+  </div>
+{% endblock %}

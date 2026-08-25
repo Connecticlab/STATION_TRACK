@@ -1422,3 +1422,61 @@ def admin_station_supprimer(request, station_id):
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_station_supprimer.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_pompe_creer(request, station_id):
+    """Creation d'une pompe pour une station, avec sa/ses face(s) et pistolets en une
+    seule fois (Face 1 obligatoire, Face 2 optionnelle) — jamais de pompe vide sans
+    aucun pistolet. Le numero de la pompe est auto-calcule (station, numero) etant
+    unique_together ; le numero des pistolets est auto-calcule par leur propre save()
+    (sequence par carburant, deja etablie ailleurs dans le projet)."""
+    from django.shortcuts import get_object_or_404
+
+    from stations.constants import ESSENCE, GASOIL
+    from stations.models import Face, Pistolet, Pompe, Station
+
+    employee = request.employee
+    societe = request.societe
+    station = get_object_or_404(Station, pk=station_id)
+
+    erreurs = []
+
+    if request.method == "POST":
+        face1_gasoil = request.POST.get("face1_gasoil") == "on"
+        face1_essence = request.POST.get("face1_essence") == "on"
+        face2_gasoil = request.POST.get("face2_gasoil") == "on"
+        face2_essence = request.POST.get("face2_essence") == "on"
+
+        if not face1_gasoil and not face1_essence:
+            erreurs.append("La Face 1 doit avoir au moins un carburant (Gasoil et/ou Essence).")
+
+        if not erreurs:
+            dernier_numero = Pompe.objects.filter(station=station).order_by("-numero").first()
+            numero_pompe = (dernier_numero.numero + 1) if dernier_numero else 1
+
+            pompe = Pompe.objects.create(station=station, numero=numero_pompe, actif=True)
+
+            face1 = Face.objects.create(pompe=pompe, numero=1, actif=True)
+            if face1_gasoil:
+                Pistolet.objects.create(face=face1, carburant=GASOIL, actif=True)
+            if face1_essence:
+                Pistolet.objects.create(face=face1, carburant=ESSENCE, actif=True)
+
+            if face2_gasoil or face2_essence:
+                face2 = Face.objects.create(pompe=pompe, numero=2, actif=True)
+                if face2_gasoil:
+                    Pistolet.objects.create(face=face2, carburant=GASOIL, actif=True)
+                if face2_essence:
+                    Pistolet.objects.create(face=face2, carburant=ESSENCE, actif=True)
+
+            return redirect("accounts:admin_station_detail", station_id=station.pk)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "station": station,
+        "erreurs": erreurs,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_pompe_creer.html", contexte)
