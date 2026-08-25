@@ -1,0 +1,45 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — Supprimer {{ cible.nom }}{% endblock %}
+
+{% block extra_style %}
+.warning-box{
+  background:var(--st-red-bg);border:1px solid rgba(255,84,112,.32);color:var(--st-red-text);
+  border-radius:9px;padding:14px 16px;font-size:13px;margin-bottom:20px;max-width:600px
+}
+.warning-box ul{margin:8px 0 0;padding-left:18px}
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Supprimer {{ cible.nom }}</h1>
+      <p>{{ cible.adresse|default:"Adresse non renseignée" }}</p>
+    </div>
+  </div>
+
+  {% if raisons_blocage %}
+    <div class="warning-box">
+      <strong>Suppression impossible.</strong> Cette station a :
+      <ul>{% for raison in raisons_blocage %}<li>{{ raison }}</li>{% endfor %}</ul>
+      Une suppression définitive effacerait ces données, ce qui n'est jamais autorisé
+      dans StationTrack. Désactivez plutôt cette station si vous souhaitez la retirer
+      du service.
+    </div>
+    <a href="{% url 'accounts:admin_station_gerer' cible.pk %}" class="action big" style="max-width:200px;padding:10px 16px;font-size:11px;border-color:var(--line);color:var(--text);">Retour</a>
+  {% else %}
+    <div class="card" style="max-width:600px">
+      <p style="margin:0 0 16px;font-size:13px;">
+        Cette action est <strong style="color:var(--st-red-text)">définitive et irréversible</strong>.
+        Aucune donnée ne référence cette station — la suppression peut se faire sans
+        risque de perte d'historique.
+      </p>
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="confirmer" value="oui">
+        <button type="submit" class="action big" style="max-width:260px;padding:10px 16px;font-size:11px;border-color:var(--red);color:var(--st-red-text);">Confirmer la suppression définitive</button>
+      </form>
+    </div>
+  {% endif %}
+{% endblock %}

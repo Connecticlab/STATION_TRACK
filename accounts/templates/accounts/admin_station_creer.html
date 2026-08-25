@@ -1,0 +1,55 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — Nouvelle station{% endblock %}
+
+{% block extra_style %}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field{margin-bottom:16px}
+.field.full{grid-column:1 / -1}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px}
+.field input{
+  width:100%;height:44px;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+  border-radius:8px;padding:0 12px;font-size:13px;font-family:inherit
+}
+.error-banner{
+  background:var(--st-red-bg);border:1px solid rgba(255,84,112,.32);color:var(--st-red-text);
+  border-radius:9px;padding:12px 14px;font-size:13px;margin-bottom:20px;max-width:600px
+}
+.error-banner ul{margin:6px 0 0;padding-left:18px}
+@media(max-width:700px){
+  .form-grid{grid-template-columns:1fr}
+}
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Nouvelle station</h1>
+      <p>Ajouter une station à <b>{{ societe.nom }}</b></p>
+    </div>
+  </div>
+
+  {% if erreurs %}
+  <div class="error-banner">
+    <ul>{% for e in erreurs %}<li>{{ e }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <div class="card" style="max-width:760px">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="field">
+          <label for="nom">Nom de la station</label>
+          <input type="text" id="nom" name="nom" required>
+        </div>
+        <div class="field">
+          <label for="adresse">Adresse (facultatif)</label>
+          <input type="text" id="adresse" name="adresse">
+        </div>
+      </div>
+      <button type="submit" class="action big" style="max-width:200px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Créer la station</button>
+    </form>
+  </div>
+{% endblock %}

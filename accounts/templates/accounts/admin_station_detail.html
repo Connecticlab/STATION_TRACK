@@ -12,8 +12,9 @@ table td + td, table th + th { border-left: 1px solid var(--line); }
   <div class="head">
     <div>
       <h1>{{ station.nom }}</h1>
-      <p>{{ station.adresse|default:"Adresse non renseignée" }} — {% if station.actif %}<span style="color:var(--green)">Active</span>{% else %}<span style="color:var(--muted)">Inactive</span>{% endif %}</p>
+      <p>{{ station.adresse|default:"Adresse non renseignée" }} — {% if station.actif %}<span style="color:var(--st-green-text)">Active</span>{% else %}<span style="color:var(--muted)">Inactive</span>{% endif %}</p>
     </div>
+    <a href="{% url 'accounts:admin_station_gerer' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Gérer</a>
   </div>
 
   <div class="card">

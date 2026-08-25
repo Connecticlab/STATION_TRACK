@@ -69,7 +69,12 @@ def employee_login(request):
             try:
                 candidat = Employee.objects.get(telephone=telephone, actif=True)
                 if candidat.check_password(mot_de_passe):
-                    employee = candidat
+                    # Station desactivee (Admin Siege exclu : station toujours nulle,
+                    # role transversal jamais bloque par le statut d'une seule station).
+                    if candidat.station is not None and not candidat.station.actif:
+                        erreur = "Cette station est désactivée. Contactez votre administrateur."
+                    else:
+                        employee = candidat
             except Employee.DoesNotExist:
                 employee = None
 
@@ -1257,3 +1262,163 @@ def admin_employe_supprimer(request, employee_id):
         "vue_active": "employes",
     }
     return render(request, "accounts/admin_employe_supprimer.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_station_creer(request):
+    """Creation d'une nouvelle station de la societe. Premiere fondation de l'etape A
+    (station -> pompe/face/pistolet -> utilisateur, dans cet ordre de dependances)."""
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+
+    erreurs = []
+
+    if request.method == "POST":
+        nom = request.POST.get("nom", "").strip()
+        adresse = request.POST.get("adresse", "").strip()
+
+        if not nom:
+            erreurs.append("Le nom de la station est obligatoire.")
+        elif Station.objects.filter(nom__iexact=nom).exists():
+            erreurs.append("Une station porte déjà ce nom.")
+
+        if not erreurs:
+            station = Station.objects.create(nom=nom, adresse=adresse, actif=True)
+            return redirect("accounts:admin_station_detail", station_id=station.pk)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "erreurs": erreurs,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_station_creer.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_station_toggle_actif(request, station_id):
+    """Active/desactive une station (bascule). Jamais de suppression ici — meme
+    logique que admin_employe_toggle_actif. Action POST uniquement."""
+    from django.shortcuts import get_object_or_404
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    from stations.models import Station
+
+    if request.method != "POST":
+        return redirect("accounts:admin_stations")
+
+    station = get_object_or_404(Station, pk=station_id)
+    station.actif = not station.actif
+    station.save(update_fields=["actif"])
+
+    next_url = request.POST.get("next", "")
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return redirect(next_url)
+    return redirect("accounts:admin_stations")
+
+
+def _raisons_blocage_suppression_station(station):
+    """Verification EXHAUSTIVE de toute donnee referencant cette station, avant toute
+    tentative de suppression. Toutes les FK vers Station sont en CASCADE (pas PROTECT) —
+    une suppression silencieuse effacerait tout l'historique operationnel (pompes,
+    prix, depots, depenses, cuves, jauges, depotages). On bloque quand meme
+    explicitement, cohérent avec le principe d'immutabilite deja applique partout
+    ailleurs dans ce projet (meme logique que pour la suppression d'un employe)."""
+    from caisse.models import DepenseCaisse, DepotBancaire
+    from cuves.models import Cuve, Depotage, Jauge
+    from stations.models import Pompe, PrixCarburant
+
+    raisons = []
+
+    if Employee.objects.filter(station=station).exists():
+        raisons.append("des employés rattachés")
+    if Pompe.objects.filter(station=station).exists():
+        raisons.append("des pompes enregistrées")
+    if PrixCarburant.objects.filter(station=station).exists():
+        raisons.append("des prix carburant configurés")
+    if DepotBancaire.objects.filter(station=station).exists():
+        raisons.append("des dépôts bancaires enregistrés")
+    if DepenseCaisse.objects.filter(station=station).exists():
+        raisons.append("des dépenses de caisse enregistrées")
+    if Cuve.objects.filter(station=station).exists():
+        raisons.append("des cuves enregistrées")
+    if Jauge.objects.filter(station=station).exists():
+        raisons.append("des relevés de jauge enregistrés")
+    if Depotage.objects.filter(station=station).exists():
+        raisons.append("des dépotages enregistrés")
+
+    return raisons
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_station_gerer(request, station_id):
+    """Modification du nom/adresse d'une station, avec acces (lien) vers l'activation
+    et la suppression — meme point d'entree unique que pour un employe."""
+    from django.shortcuts import get_object_or_404
+
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+    cible = get_object_or_404(Station, pk=station_id)
+
+    erreurs = []
+
+    if request.method == "POST":
+        nouveau_nom = request.POST.get("nom", "").strip()
+        nouvelle_adresse = request.POST.get("adresse", "").strip()
+
+        if not nouveau_nom:
+            erreurs.append("Le nom de la station est obligatoire.")
+        elif Station.objects.filter(nom__iexact=nouveau_nom).exclude(pk=cible.pk).exists():
+            erreurs.append("Une autre station porte déjà ce nom.")
+
+        if not erreurs:
+            cible.nom = nouveau_nom
+            cible.adresse = nouvelle_adresse
+            cible.save(update_fields=["nom", "adresse"])
+            return redirect(request.path + "?succes=1")
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "cible": cible,
+        "erreurs": erreurs,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_station_gerer.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_station_supprimer(request, station_id):
+    """Suppression definitive d'une station — reservee aux cas ou AUCUNE donnee
+    operationnelle ne la reference (verification exhaustive via
+    _raisons_blocage_suppression_station). Meme flux en deux etapes que pour un
+    employe."""
+    from django.shortcuts import get_object_or_404
+
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+    cible = get_object_or_404(Station, pk=station_id)
+
+    raisons_blocage = _raisons_blocage_suppression_station(cible)
+
+    if request.method == "POST" and not raisons_blocage:
+        if request.POST.get("confirmer") == "oui":
+            cible.delete()
+            return redirect("accounts:admin_stations")
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "cible": cible,
+        "raisons_blocage": raisons_blocage,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_station_supprimer.html", contexte)

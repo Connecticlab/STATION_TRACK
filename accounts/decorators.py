@@ -37,6 +37,15 @@ def require_employee_login(roles=None):
             if roles is not None and employee.role not in roles:
                 return redirect("accounts:login")
 
+            # Station desactivee (par ex. entre-temps par l'Admin Siege) : deconnexion
+            # immediate, jamais seulement bloque a la connexion — meme logique que
+            # employee_login. Admin Siege exclu (station toujours nulle, role
+            # transversal jamais bloque par le statut d'une seule station).
+            if employee.station is not None and not employee.station.actif:
+                request.session.pop("employee_id", None)
+                request.session.pop("employee_societe_slug", None)
+                return redirect("accounts:login")
+
             request.employee = employee
             return view_func(request, *args, **kwargs)
         return wrapper

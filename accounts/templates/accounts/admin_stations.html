@@ -9,22 +9,24 @@
       <h1>Stations service</h1>
       <p>{{ lignes|length }} station(s) enregistrée(s) pour <b>{{ societe.nom }}</b></p>
     </div>
+    <a href="{% url 'accounts:admin_station_creer' %}" class="action" style="max-width:220px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">+ Ajouter une station</a>
   </div>
 
   <div class="card">
     <table>
-      <thead><tr><th>Nom</th><th>Adresse</th><th>Statut</th><th>Pompes</th><th>Pistolets</th></tr></thead>
+      <thead><tr><th>Nom</th><th>Adresse</th><th>Statut</th><th>Pompes</th><th>Pistolets</th><th>Action</th></tr></thead>
       <tbody>
         {% for ligne in lignes %}
-        <tr class="clickable" onclick="window.location.href='{% url 'accounts:admin_station_detail' ligne.station.pk %}'">
-          <td>{{ ligne.station.nom }}</td>
+        <tr>
+          <td class="clickable" onclick="window.location.href='{% url 'accounts:admin_station_detail' ligne.station.pk %}'">{{ ligne.station.nom }}</td>
           <td>{{ ligne.station.adresse|default:"—" }}</td>
           <td>{% if ligne.station.actif %}<span class="status">Active</span>{% else %}<span class="status muted">Inactive</span>{% endif %}</td>
           <td>{{ ligne.nb_pompes }}</td>
           <td>{{ ligne.nb_pistolets }}</td>
+          <td><a href="{% url 'accounts:admin_station_gerer' ligne.station.pk %}" class="action" style="padding:6px 12px;font-size:9.5px;border-color:var(--blue);color:var(--blue);">Gérer</a></td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" style="color:var(--muted);text-align:center;">Aucune station enregistrée.</td></tr>
+        <tr><td colspan="6" style="color:var(--muted);text-align:center;">Aucune station enregistrée.</td></tr>
         {% endfor %}
       </tbody>
     </table>
