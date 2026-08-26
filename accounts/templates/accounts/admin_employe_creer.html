@@ -1,0 +1,103 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — Nouvel employé{% endblock %}
+
+{% block extra_style %}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field{margin-bottom:16px}
+.field.full{grid-column:1 / -1}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px}
+.field input,.field select{
+  width:100%;height:44px;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+  border-radius:8px;padding:0 12px;font-size:13px;font-family:inherit
+}
+.error-banner{
+  background:var(--st-red-bg);border:1px solid rgba(255,84,112,.32);color:var(--st-red-text);
+  border-radius:9px;padding:12px 14px;font-size:13px;margin-bottom:20px;max-width:600px
+}
+.error-banner ul{margin:6px 0 0;padding-left:18px}
+@media(max-width:700px){
+  .form-grid{grid-template-columns:1fr}
+}
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Nouvel employé</h1>
+      <p>Ajouter un employé à <b>{{ societe.nom }}</b></p>
+    </div>
+  </div>
+
+  {% if erreurs %}
+  <div class="error-banner">
+    <ul>{% for e in erreurs %}<li>{{ e }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <div class="card" style="max-width:760px">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="field">
+          <label for="nom_complet">Nom complet</label>
+          <input type="text" id="nom_complet" name="nom_complet" required>
+        </div>
+        <div class="field">
+          <label for="telephone">Téléphone</label>
+          <input type="tel" id="telephone" name="telephone" required>
+        </div>
+        <div class="field">
+          <label for="role">Rôle</label>
+          <select name="role" id="role">
+            <option value="pompiste">Pompiste</option>
+            <option value="chef_de_piste">Chef de piste</option>
+            <option value="gerant">Gérant</option>
+            <option value="admin_siege">Admin Siège</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="station">Station</label>
+          <select name="station" id="station">
+            <option value="">— Aucune (Admin Siège uniquement) —</option>
+            {% for station in stations %}
+              <option value="{{ station.pk }}">{{ station.nom }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field full">
+          <label for="mot_de_passe">Mot de passe</label>
+          <input type="password" id="mot_de_passe" name="mot_de_passe" autocomplete="new-password" required>
+        </div>
+      </div>
+      <button type="submit" class="action big" style="max-width:200px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Créer l'employé</button>
+    </form>
+  </div>
+
+  <script>
+  (function(){
+    var roleSelect = document.getElementById('role');
+    var stationSelect = document.getElementById('station');
+    var optionAucune = stationSelect.querySelector('option[value=""]');
+    var optionsStations = Array.prototype.slice.call(stationSelect.querySelectorAll('option:not([value=""])'));
+
+    function ajuster() {
+      if (roleSelect.value === 'admin_siege') {
+        optionAucune.hidden = false;
+        optionsStations.forEach(function(o) { o.hidden = true; });
+        stationSelect.value = '';
+      } else {
+        optionAucune.hidden = true;
+        optionsStations.forEach(function(o) { o.hidden = false; });
+        if (stationSelect.value === '' && optionsStations.length > 0) {
+          stationSelect.value = optionsStations[0].value;
+        }
+      }
+    }
+
+    roleSelect.addEventListener('change', ajuster);
+    ajuster();
+  })();
+  </script>
+{% endblock %}

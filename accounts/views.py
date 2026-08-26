@@ -154,16 +154,28 @@ def pompiste_accueil(request):
     pistolets = pistolets_affectes_a(employee)
     structure = _structurer_pistolets_par_pompe_face(pistolets)
 
-    # Si aucun pistolet disponible, distinguer "aucune affectation du tout" de
-    # "affectation existante mais pompe hors service" — jamais laisser un ecran
-    # silencieusement vide sans explication.
+    # Si aucun pistolet disponible, distinguer TROIS cas — jamais laisser un ecran
+    # silencieusement vide avec un bouton inoperant : 1) station sans aucune pompe
+    # configuree, 2) employe sans aucune affectation (nouvel employe, ou transfert
+    # ayant desaffecte), 3) affectation existante mais pompe hors service.
     pompe_indisponible = None
+    aucune_pompe_station = False
+    aucune_affectation = False
+
     if not structure:
-        pistolets_bruts = Pistolet.objects.filter(
-            Q(face__pompe__employee_affecte=employee) | Q(face__employee_affecte=employee)
-        ).exclude(face__pompe__statut=Pompe.STATUT_ACTIF).select_related("face__pompe").first()
-        if pistolets_bruts:
-            pompe_indisponible = pistolets_bruts.face.pompe
+        if not Pompe.objects.filter(station=employee.station).exists():
+            aucune_pompe_station = True
+        else:
+            pistolets_bruts_qs = Pistolet.objects.filter(
+                Q(face__pompe__employee_affecte=employee) | Q(face__employee_affecte=employee)
+            ).select_related("face__pompe")
+            pistolet_brut = pistolets_bruts_qs.first()
+            if pistolet_brut is None:
+                aucune_affectation = True
+            else:
+                indisponible = pistolets_bruts_qs.exclude(face__pompe__statut=Pompe.STATUT_ACTIF).first()
+                if indisponible:
+                    pompe_indisponible = indisponible.face.pompe
 
     aujourdhui = timezone.localtime(timezone.now()).date()
     session = SessionCaisse.objects.filter(employee=employee, date=aujourdhui).first()
@@ -233,6 +245,8 @@ def pompiste_accueil(request):
         "employee": employee,
         "structure": structure,
         "pompe_indisponible": pompe_indisponible,
+        "aucune_pompe_station": aucune_pompe_station,
+        "aucune_affectation": aucune_affectation,
         "a_depart": a_depart,
         "a_fin": a_fin,
         "session": session,
@@ -291,6 +305,11 @@ def pompiste_finaliser(request):
                     pistolet.litres_vendus = None
 
     erreurs = []
+    if apercu["prix_manquants"]:
+        erreurs.append(
+            "Prix non configuré pour : " + ", ".join(apercu["prix_manquants"])
+            + ". Contactez l'Admin Siège avant de confirmer votre clôture."
+        )
 
     if request.method == "POST":
         montant_brut = request.POST.get("montant_encaisse", "").strip()
@@ -917,6 +936,11 @@ def gerant_finaliser(request, pompiste_id):
                     pistolet.litres_vendus = None
 
     erreurs = []
+    if apercu["prix_manquants"]:
+        erreurs.append(
+            "Prix non configuré pour : " + ", ".join(apercu["prix_manquants"])
+            + ". Contactez l'Admin Siège avant de confirmer la vérification."
+        )
 
     if request.method == "POST":
         montant_brut = request.POST.get("montant_verse_gerant", "").strip()
@@ -1138,6 +1162,15 @@ def admin_employe_gerer(request, employee_id):
         or Face.objects.filter(employee_affecte=cible).exists()
     )
 
+    from django.utils import timezone
+
+    from caisse.models import SessionCaisse
+
+    aujourdhui = timezone.localtime(timezone.now()).date()
+    a_caisse_ouverte = SessionCaisse.objects.filter(
+        employee=cible, date=aujourdhui, montant_encaisse__isnull=True
+    ).exists()
+
     erreurs = []
     desaffectation_effectuee = False
 
@@ -1169,6 +1202,17 @@ def admin_employe_gerer(request, employee_id):
                     nouvelle_station = stations.get(pk=nouveau_station_id)
                 except Station.DoesNotExist:
                     erreurs.append("Station invalide.")
+
+        role_ou_station_change = (
+            nouveau_role != cible.role
+            or (nouvelle_station.pk if nouvelle_station else None) != cible.station_id
+        )
+        if role_ou_station_change and a_caisse_ouverte:
+            erreurs.append(
+                "Impossible de changer le rôle ou la station : cet employé a une "
+                "caisse ouverte non clôturée aujourd'hui. Demandez d'abord au "
+                "Gérant de clôturer et de confronter sa caisse."
+            )
 
         if nouveau_mot_de_passe and len(nouveau_mot_de_passe) < 8:
             erreurs.append("Le nouveau mot de passe doit contenir au moins 8 caractères.")
@@ -1283,8 +1327,16 @@ def admin_employe_supprimer(request, employee_id):
 @require_employee_login(roles=[Employee.ADMIN_SIEGE])
 def admin_station_creer(request):
     """Creation d'une nouvelle station de la societe. Premiere fondation de l'etape A
-    (station -> pompe/face/pistolet -> utilisateur, dans cet ordre de dependances)."""
-    from stations.models import Station
+    (station -> pompe/face/pistolet -> utilisateur, dans cet ordre de dependances).
+    Le prix Gasoil ET Essence sont OBLIGATOIRES a la creation — jamais une station
+    sans prix configure, qui produirait silencieusement un calcul theorique a 0 FCFA
+    (bug d'integrite financiere deja rencontre et corrige)."""
+    from decimal import Decimal, InvalidOperation
+
+    from django.utils import timezone
+
+    from stations.constants import ESSENCE, GASOIL
+    from stations.models import PrixCarburant, Station
 
     employee = request.employee
     societe = request.societe
@@ -1294,14 +1346,46 @@ def admin_station_creer(request):
     if request.method == "POST":
         nom = request.POST.get("nom", "").strip()
         adresse = request.POST.get("adresse", "").strip()
+        prix_gasoil_brut = request.POST.get("prix_gasoil", "").strip()
+        prix_essence_brut = request.POST.get("prix_essence", "").strip()
 
         if not nom:
             erreurs.append("Le nom de la station est obligatoire.")
         elif Station.objects.filter(nom__iexact=nom).exists():
             erreurs.append("Une station porte déjà ce nom.")
 
+        prix_gasoil = None
+        prix_essence = None
+
+        if not prix_gasoil_brut:
+            erreurs.append("Le prix du Gasoil est obligatoire.")
+        else:
+            try:
+                prix_gasoil = Decimal(prix_gasoil_brut)
+                if prix_gasoil <= 0:
+                    erreurs.append("Le prix du Gasoil doit être supérieur à zéro.")
+            except InvalidOperation:
+                erreurs.append("Prix du Gasoil invalide.")
+
+        if not prix_essence_brut:
+            erreurs.append("Le prix de l'Essence est obligatoire.")
+        else:
+            try:
+                prix_essence = Decimal(prix_essence_brut)
+                if prix_essence <= 0:
+                    erreurs.append("Le prix de l'Essence doit être supérieur à zéro.")
+            except InvalidOperation:
+                erreurs.append("Prix de l'Essence invalide.")
+
         if not erreurs:
+            maintenant = timezone.now()
             station = Station.objects.create(nom=nom, adresse=adresse, actif=True)
+            PrixCarburant.objects.create(
+                station=station, carburant=GASOIL, prix_au_litre=prix_gasoil, date_debut=maintenant,
+            )
+            PrixCarburant.objects.create(
+                station=station, carburant=ESSENCE, prix_au_litre=prix_essence, date_debut=maintenant,
+            )
             return redirect("accounts:admin_station_detail", station_id=station.pk)
 
     contexte = {
@@ -1603,3 +1687,68 @@ def admin_pompe_supprimer(request, pompe_id):
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_pompe_supprimer.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_employe_creer(request):
+    """Creation d'un nouvel employe (n'importe quel role, y compris Admin Siege).
+    Derniere fondation de l'etape A (station -> pompe/face/pistolet -> utilisateur,
+    dans cet ordre de dependances)."""
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+    stations = Station.objects.all().order_by("nom")
+
+    erreurs = []
+
+    if request.method == "POST":
+        nom = request.POST.get("nom_complet", "").strip()
+        telephone = request.POST.get("telephone", "").strip()
+        role = request.POST.get("role", "").strip()
+        station_id = request.POST.get("station", "").strip()
+        mot_de_passe = request.POST.get("mot_de_passe", "").strip()
+
+        if not nom:
+            erreurs.append("Le nom complet est obligatoire.")
+
+        if not telephone:
+            erreurs.append("Le téléphone est obligatoire.")
+        elif Employee.objects.filter(telephone=telephone).exists():
+            erreurs.append("Ce numéro de téléphone est déjà utilisé par un autre employé.")
+
+        roles_valides = dict(Employee.ROLE_CHOICES)
+        if role not in roles_valides:
+            erreurs.append("Rôle invalide.")
+
+        station = None
+        if role != Employee.ADMIN_SIEGE:
+            if not station_id:
+                erreurs.append("Une station est obligatoire pour ce rôle.")
+            else:
+                try:
+                    station = stations.get(pk=station_id)
+                except Station.DoesNotExist:
+                    erreurs.append("Station invalide.")
+
+        if not mot_de_passe:
+            erreurs.append("Le mot de passe est obligatoire.")
+        elif len(mot_de_passe) < 8:
+            erreurs.append("Le mot de passe doit contenir au moins 8 caractères.")
+
+        if not erreurs:
+            nouvel_employee = Employee(
+                nom_complet=nom, telephone=telephone, role=role, station=station, actif=True,
+            )
+            nouvel_employee.set_password(mot_de_passe)
+            nouvel_employee.save()
+            return redirect("accounts:admin_employes")
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "stations": stations,
+        "erreurs": erreurs,
+        "vue_active": "employes",
+    }
+    return render(request, "accounts/admin_employe_creer.html", contexte)

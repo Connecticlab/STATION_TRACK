@@ -59,6 +59,14 @@
     </div>
   {% endif %}
 
+  {% if a_caisse_ouverte %}
+    <div class="warning-box" style="background:var(--st-red-bg);border-color:rgba(255,84,112,.32);color:var(--st-red-text);">
+      Cet employé a une caisse ouverte non clôturée aujourd'hui. Le changement de
+      rôle ou de station est bloqué tant que sa journée n'est pas clôturée/confrontée
+      par le Gérant.
+    </div>
+  {% endif %}
+
   <div class="card" style="max-width:760px">
     <form method="post">
       {% csrf_token %}

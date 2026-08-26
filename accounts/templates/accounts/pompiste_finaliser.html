@@ -135,6 +135,7 @@ body{padding:16px;padding-bottom:48px}
     <div class="row total"><span>Total collecté (référence)</span><span>{{ session.montant_cash|add:session.montant_wave|add:session.montant_orange_money|fcfa }}</span></div>
   </div>
 
+  {% if not apercu.prix_manquants %}
   <form method="post">
     {% csrf_token %}
     <div class="card">
@@ -145,6 +146,7 @@ body{padding:16px;padding-bottom:48px}
     </div>
     <button type="submit" class="big-btn">CONFIRMER LA CLÔTURE</button>
   </form>
+  {% endif %}
 
 </div>
 <script>

@@ -163,7 +163,21 @@ body{padding:16px;padding-bottom:48px}
       </div>
     {% endif %}
 
-    {% if pompe_indisponible %}
+    {% if aucune_pompe_station %}
+      <div class="card" style="border-left:3px solid var(--orange);">
+        <p style="margin:0;font-size:13px;">
+          <strong>Aucune pompe configurée</strong><br>
+          Aucune pompe n'a encore été configurée pour votre station. Contactez l'Admin Siège.
+        </p>
+      </div>
+    {% elif aucune_affectation %}
+      <div class="card" style="border-left:3px solid var(--orange);">
+        <p style="margin:0;font-size:13px;">
+          <strong>Aucune pompe affectée</strong><br>
+          Vous n'êtes actuellement affecté à aucune pompe. Contactez votre Gérant ou l'Admin Siège.
+        </p>
+      </div>
+    {% elif pompe_indisponible %}
       <div class="card" style="border-left:3px solid var(--orange);">
         <p style="margin:0;font-size:13px;">
           <strong>Pompe {{ pompe_indisponible.numero }} {% if pompe_indisponible.statut == "maintenance" %}en maintenance{% else %}en panne{% endif %}</strong><br>
@@ -177,7 +191,7 @@ body{padding:16px;padding-bottom:48px}
         <div class="wizard-track"><div class="wizard-fill" id="wizardFill"></div></div>
         <div class="wizard-label" id="wizardLabel"></div>
       </div>
-      {% if not pompe_indisponible %}
+      {% if structure %}
         {% for groupe_pompe in structure %}
           <div class="card">
             <h2>Pompe {{ groupe_pompe.pompe.numero }}</h2>
@@ -226,6 +240,7 @@ body{padding:16px;padding-bottom:48px}
       headers.forEach(function(h){ h.style.display = 'none'; });
 
       rows.forEach(function(r){ r.style.display = 'none'; });
+      var cards = Array.prototype.slice.call(document.querySelectorAll('#indexForm .card'));
       progress.style.display = 'block';
       nav.style.display = 'flex';
       if (submitBtn) submitBtn.style.display = 'none';
@@ -233,6 +248,8 @@ body{padding:16px;padding-bottom:48px}
       function render(){
         rows.forEach(function(r, i){ r.style.display = (i === current) ? 'flex' : 'none'; });
         var ctx = rows[current];
+        var carteActuelle = ctx.closest('.card');
+        cards.forEach(function(c){ c.style.display = (c === carteActuelle) ? 'block' : 'none'; });
         label.textContent = 'Pompe ' + ctx.dataset.pompe + ', Face ' + ctx.dataset.face + ' — Pistolet ' + (current + 1) + ' sur ' + rows.length;
         fill.style.width = Math.round(((current + 1) / rows.length) * 100) + '%';
         prevBtn.style.display = (current === 0) ? 'none' : 'block';

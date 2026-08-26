@@ -48,7 +48,18 @@
           <label for="adresse">Adresse (facultatif)</label>
           <input type="text" id="adresse" name="adresse">
         </div>
+        <div class="field">
+          <label for="prix_gasoil">Prix Gasoil (FCFA/L)</label>
+          <input type="number" step="0.01" min="0.01" id="prix_gasoil" name="prix_gasoil" required>
+        </div>
+        <div class="field">
+          <label for="prix_essence">Prix Essence (FCFA/L)</label>
+          <input type="number" step="0.01" min="0.01" id="prix_essence" name="prix_essence" required>
+        </div>
       </div>
+      <p style="font-size:11.5px;color:var(--muted);margin:-6px 0 16px;">
+        Ces prix sont obligatoires : sans eux, le calcul théorique des clôtures de caisse afficherait 0 FCFA.
+      </p>
       <button type="submit" class="action big" style="max-width:200px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Créer la station</button>
     </form>
   </div>

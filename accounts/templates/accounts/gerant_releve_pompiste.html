@@ -160,6 +160,7 @@ body{padding:16px;padding-bottom:48px}
       headers.forEach(function(h){ h.style.display = 'none'; });
 
       rows.forEach(function(r){ r.style.display = 'none'; });
+      var cards = Array.prototype.slice.call(document.querySelectorAll('#indexForm .card'));
       progress.style.display = 'block';
       nav.style.display = 'flex';
       if (submitBtn) submitBtn.style.display = 'none';
@@ -167,6 +168,8 @@ body{padding:16px;padding-bottom:48px}
       function render(){
         rows.forEach(function(r, i){ r.style.display = (i === current) ? 'flex' : 'none'; });
         var ctx = rows[current];
+        var carteActuelle = ctx.closest('.card');
+        cards.forEach(function(c){ c.style.display = (c === carteActuelle) ? 'block' : 'none'; });
         label.textContent = 'Pompe ' + ctx.dataset.pompe + ', Face ' + ctx.dataset.face + ' — Pistolet ' + (current + 1) + ' sur ' + rows.length;
         fill.style.width = Math.round(((current + 1) / rows.length) * 100) + '%';
         prevBtn.style.display = (current === 0) ? 'none' : 'block';
