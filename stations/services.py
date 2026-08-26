@@ -51,9 +51,16 @@ def pistolets_affectes_a(employee):
     Le .distinct() protege contre un pistolet atteignable par les deux chemins a la
     fois — ne devrait jamais arriver vu la regle d'exclusivite deja appliquee dans
     Pompe.clean()/Face.clean(), mais protection peu couteuse.
+
+    Exclut les pistolets d'une pompe non ACTIF (maintenance ou panne) — cette
+    fonction sert exclusivement a la capture/validation de NOUVEAUX relevés
+    (jamais a la consultation d'historique passe, qui interroge directement les
+    modeles ReleveIndex* sans passer par ici), donc une pompe hors service ne doit
+    jamais etre proposee pour une nouvelle prise d'index.
     """
-    from stations.models import Pistolet
+    from stations.models import Pistolet, Pompe
 
     return Pistolet.objects.filter(
-        Q(face__pompe__employee_affecte=employee) | Q(face__employee_affecte=employee)
+        Q(face__pompe__employee_affecte=employee) | Q(face__employee_affecte=employee),
+        face__pompe__statut=Pompe.STATUT_ACTIF,
     ).distinct()

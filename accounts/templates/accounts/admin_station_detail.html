@@ -22,7 +22,15 @@ table td + td, table th + th { border-left: 1px solid var(--line); }
 
   {% for groupe_pompe in structure %}
     <div class="card" style="margin-bottom:16px;">
-      <div style="font-size:14px;color:var(--st-orange-text);margin:0 0 12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Pompe {{ groupe_pompe.pompe.numero }}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div style="font-size:14px;color:var(--st-orange-text);font-weight:700;text-transform:uppercase;letter-spacing:.5px;">
+          Pompe {{ groupe_pompe.pompe.numero }}
+          {% if groupe_pompe.pompe.statut == "actif" %}<span class="status" style="margin-left:8px;">Actif</span>
+          {% elif groupe_pompe.pompe.statut == "maintenance" %}<span class="status orange" style="margin-left:8px;">En maintenance</span>
+          {% else %}<span class="status" style="margin-left:8px;background:var(--st-red-bg);color:var(--st-red-text);">En panne</span>{% endif %}
+        </div>
+        <a href="{% url 'accounts:admin_pompe_gerer' groupe_pompe.pompe.pk %}" class="action" style="padding:6px 12px;font-size:9.5px;max-width:100px;border-color:var(--blue);color:var(--blue);">Gérer</a>
+      </div>
       {% for groupe_face in groupe_pompe.faces %}
         <div style="font-size:12.5px;color:var(--muted);margin:8px 0 6px;font-weight:600;">Face {{ groupe_face.face.numero }}</div>
         <table style="margin-bottom:10px;">

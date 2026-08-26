@@ -20,9 +20,18 @@ class Station(models.Model):
 
 class Pompe(models.Model):
     """Une pompe (volute compteur / distributeur) d'une station. Une station peut avoir jusqu'à 8 pompes."""
+    STATUT_ACTIF = "actif"
+    STATUT_MAINTENANCE = "maintenance"
+    STATUT_PANNE = "panne"
+    STATUT_CHOICES = [
+        (STATUT_ACTIF, "Actif"),
+        (STATUT_MAINTENANCE, "En maintenance"),
+        (STATUT_PANNE, "En panne"),
+    ]
+
     station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name="pompes")
     numero = models.PositiveIntegerField(help_text="Numéro de la pompe au sein de la station")
-    actif = models.BooleanField(default=True)
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default=STATUT_ACTIF)
     employee_affecte = models.ForeignKey(
         "accounts.Employee", null=True, blank=True,
         on_delete=models.SET_NULL, related_name="pompes_affectees",

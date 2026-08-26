@@ -146,9 +146,24 @@ def pompiste_accueil(request):
     from caisse.models import ReleveIndexPompiste, SessionCaisse
     from stations.services import pistolets_affectes_a
 
+    from django.db.models import Q
+
+    from stations.models import Pistolet, Pompe
+
     employee = request.employee
     pistolets = pistolets_affectes_a(employee)
     structure = _structurer_pistolets_par_pompe_face(pistolets)
+
+    # Si aucun pistolet disponible, distinguer "aucune affectation du tout" de
+    # "affectation existante mais pompe hors service" — jamais laisser un ecran
+    # silencieusement vide sans explication.
+    pompe_indisponible = None
+    if not structure:
+        pistolets_bruts = Pistolet.objects.filter(
+            Q(face__pompe__employee_affecte=employee) | Q(face__employee_affecte=employee)
+        ).exclude(face__pompe__statut=Pompe.STATUT_ACTIF).select_related("face__pompe").first()
+        if pistolets_bruts:
+            pompe_indisponible = pistolets_bruts.face.pompe
 
     aujourdhui = timezone.localtime(timezone.now()).date()
     session = SessionCaisse.objects.filter(employee=employee, date=aujourdhui).first()
@@ -217,6 +232,7 @@ def pompiste_accueil(request):
     contexte = {
         "employee": employee,
         "structure": structure,
+        "pompe_indisponible": pompe_indisponible,
         "a_depart": a_depart,
         "a_fin": a_fin,
         "session": session,
@@ -1455,7 +1471,7 @@ def admin_pompe_creer(request, station_id):
             dernier_numero = Pompe.objects.filter(station=station).order_by("-numero").first()
             numero_pompe = (dernier_numero.numero + 1) if dernier_numero else 1
 
-            pompe = Pompe.objects.create(station=station, numero=numero_pompe, actif=True)
+            pompe = Pompe.objects.create(station=station, numero=numero_pompe, statut=Pompe.STATUT_ACTIF)
 
             face1 = Face.objects.create(pompe=pompe, numero=1, actif=True)
             if face1_gasoil:
@@ -1480,3 +1496,110 @@ def admin_pompe_creer(request, station_id):
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_pompe_creer.html", contexte)
+
+
+def _raisons_blocage_suppression_pompe(pompe):
+    """Verification EXHAUSTIVE avant suppression d'une pompe : tout pistolet de cette
+    pompe (via ses faces) ayant un releve (pompiste OU gerant, tous deux en PROTECT)
+    bloque la suppression — sinon Face/Pistolet en CASCADE depuis Pompe effacerait
+    silencieusement l'historique de relevés au moment ou Django tenterait de lever
+    l'IntegrityError PROTECT (jamais laisser une erreur brute, toujours verifier avant)."""
+    from caisse.models import ReleveIndexGerant, ReleveIndexPompiste
+    from stations.models import Pistolet
+
+    raisons = []
+
+    pistolets_ids = Pistolet.objects.filter(face__pompe=pompe).values_list("pk", flat=True)
+
+    if ReleveIndexPompiste.objects.filter(pistolet_id__in=pistolets_ids).exists():
+        raisons.append("des relevés d'index pompiste enregistrés sur un ou plusieurs de ses pistolets")
+    if ReleveIndexGerant.objects.filter(pistolet_id__in=pistolets_ids).exists():
+        raisons.append("des relevés d'index Gérant enregistrés sur un ou plusieurs de ses pistolets")
+
+    return raisons
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_pompe_gerer(request, pompe_id):
+    """Modification du statut et de l'affectation d'une pompe entiere. L'affectation
+    par face individuelle reste geree ailleurs (pas encore construit — chantier
+    distinct) ; ici, seule l'affectation au niveau de la pompe entiere."""
+    from django.core.exceptions import ValidationError
+    from django.shortcuts import get_object_or_404
+
+    from accounts.models import Employee as EmployeeModel
+    from stations.models import Pompe
+
+    employee = request.employee
+    societe = request.societe
+    cible = get_object_or_404(Pompe, pk=pompe_id)
+
+    employes_station = EmployeeModel.objects.filter(
+        station=cible.station, role=EmployeeModel.POMPISTE, actif=True
+    ).order_by("nom_complet")
+
+    erreurs = []
+
+    if request.method == "POST":
+        nouveau_statut = request.POST.get("statut", "").strip()
+        nouvel_employee_id = request.POST.get("employee_affecte", "").strip()
+
+        statuts_valides = dict(Pompe.STATUT_CHOICES)
+        if nouveau_statut not in statuts_valides:
+            erreurs.append("Statut invalide.")
+
+        nouvel_employee = None
+        if nouvel_employee_id:
+            try:
+                nouvel_employee = employes_station.get(pk=nouvel_employee_id)
+            except EmployeeModel.DoesNotExist:
+                erreurs.append("Employé invalide.")
+
+        if not erreurs:
+            cible.statut = nouveau_statut
+            cible.employee_affecte = nouvel_employee
+            try:
+                cible.save()
+                return redirect(request.path + "?succes=1")
+            except ValidationError as e:
+                erreurs.extend(e.messages)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "cible": cible,
+        "employes_station": employes_station,
+        "erreurs": erreurs,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_pompe_gerer.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_pompe_supprimer(request, pompe_id):
+    """Suppression definitive d'une pompe — reservee aux cas ou AUCUN releve n'existe
+    sur aucun de ses pistolets (verification exhaustive). Meme flux en deux etapes."""
+    from django.shortcuts import get_object_or_404
+
+    from stations.models import Pompe
+
+    employee = request.employee
+    societe = request.societe
+    cible = get_object_or_404(Pompe, pk=pompe_id)
+
+    raisons_blocage = _raisons_blocage_suppression_pompe(cible)
+
+    if request.method == "POST" and not raisons_blocage:
+        if request.POST.get("confirmer") == "oui":
+            station_id = cible.station_id
+            cible.delete()
+            return redirect("accounts:admin_station_detail", station_id=station_id)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "cible": cible,
+        "raisons_blocage": raisons_blocage,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_pompe_supprimer.html", contexte)
