@@ -1,0 +1,63 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — Nouvelle cuve{% endblock %}
+
+{% block extra_style %}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field{margin-bottom:16px}
+.field.full{grid-column:1 / -1}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px}
+.field input,.field select{
+  width:100%;height:44px;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+  border-radius:8px;padding:0 12px;font-size:13px;font-family:inherit
+}
+.error-banner{
+  background:var(--st-red-bg);border:1px solid rgba(255,84,112,.32);color:var(--st-red-text);
+  border-radius:9px;padding:12px 14px;font-size:13px;margin-bottom:20px;max-width:600px
+}
+.error-banner ul{margin:6px 0 0;padding-left:18px}
+@media(max-width:700px){
+  .form-grid{grid-template-columns:1fr}
+}
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Nouvelle cuve</h1>
+      <p>Ajouter une cuve à <b>{{ station.nom }}</b></p>
+    </div>
+    <a href="{% url 'accounts:admin_station_detail' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--line);color:var(--text);">Retour</a>
+  </div>
+
+  {% if erreurs %}
+  <div class="error-banner">
+    <ul>{% for e in erreurs %}<li>{{ e }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <div class="card" style="max-width:600px">
+    <form method="post">
+      {% csrf_token %}
+      <div class="form-grid">
+        <div class="field full">
+          <label for="carburant">Carburant</label>
+          <select name="carburant" id="carburant">
+            <option value="gasoil">Gasoil</option>
+            <option value="essence">Essence</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="capacite">Capacité (L)</label>
+          <input type="number" step="0.01" min="0.01" id="capacite" name="capacite" required>
+        </div>
+        <div class="field">
+          <label for="stock">Stock de départ (L)</label>
+          <input type="number" step="0.01" min="0" id="stock" name="stock" required>
+        </div>
+      </div>
+      <button type="submit" class="action big" style="max-width:200px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Créer la cuve</button>
+    </form>
+  </div>
+{% endblock %}

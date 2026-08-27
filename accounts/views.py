@@ -1071,11 +1071,40 @@ def admin_station_detail(request, station_id):
     pistolets = Pistolet.objects.filter(face__pompe__station=station)
     structure = _structurer_pistolets_par_pompe_face(pistolets)
 
+    from django.db.models import Sum
+
+    from cuves.models import Cuve, Jauge
+
+    # Jauge = stock AGREGE par carburant (jamais par cuve individuelle, cf. docstring
+    # du modele) — on affiche donc un resume PAR CARBURANT (capacite totale + derniere
+    # jauge unique), jamais une jauge repetee identique sur chaque ligne de cuve
+    # (bug d affichage trompeur deja rencontre et corrige).
+    cuves = Cuve.objects.filter(station=station).order_by("carburant")
+    resume_carburants = []
+    for carburant, libelle in Cuve._meta.get_field("carburant").choices:
+        cuves_carburant = cuves.filter(carburant=carburant)
+        if not cuves_carburant.exists():
+            continue
+        derniere_jauge = Jauge.objects.filter(
+            station=station, carburant=carburant
+        ).order_by("-date_mesure").first()
+        # Seules les cuves ACTIVES comptent dans la capacite disponible — une cuve
+        # desactivee (maintenance/panne) ne doit jamais etre consideree comme espace
+        # de stockage utilisable, meme logique que pour les pompes.
+        resume_carburants.append({
+            "carburant": libelle,
+            "nb_cuves": cuves_carburant.count(),
+            "capacite_totale": cuves_carburant.filter(actif=True).aggregate(total=Sum("capacite"))["total"] or 0,
+            "derniere_jauge": derniere_jauge,
+        })
+
     contexte = {
         "employee": employee,
         "societe": societe,
         "station": station,
         "structure": structure,
+        "cuves": cuves,
+        "resume_carburants": resume_carburants,
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_station_detail.html", contexte)
@@ -2150,3 +2179,159 @@ def admin_station_jauges(request, station_id):
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_station_jauges.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_cuve_creer(request, station_id):
+    """Creation d une cuve supplementaire pour une station — jamais un stock cree
+    sans une premiere Jauge de depart correspondante, meme logique que la creation
+    de station (chantier Cuves etape 2/5)."""
+    from decimal import Decimal, InvalidOperation
+
+    from django.shortcuts import get_object_or_404
+    from django.utils import timezone
+
+    from cuves.models import Cuve, Jauge
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+    station = get_object_or_404(Station, pk=station_id)
+
+    erreurs = []
+
+    if request.method == "POST":
+        carburant = request.POST.get("carburant", "").strip()
+        capacite_brute = request.POST.get("capacite", "").strip()
+        stock_brut = request.POST.get("stock", "").strip()
+
+        carburants_valides = dict(dict(Cuve._meta.get_field("carburant").choices))
+        if carburant not in carburants_valides:
+            erreurs.append("Carburant invalide.")
+
+        capacite = None
+        stock = None
+        if not capacite_brute:
+            erreurs.append("La capacité est obligatoire.")
+        else:
+            try:
+                capacite = Decimal(capacite_brute)
+                if capacite <= 0:
+                    erreurs.append("La capacité doit être supérieure à zéro.")
+            except InvalidOperation:
+                erreurs.append("Capacité invalide.")
+        if not stock_brut:
+            erreurs.append("Le stock de départ est obligatoire.")
+        else:
+            try:
+                stock = Decimal(stock_brut)
+                if stock < 0:
+                    erreurs.append("Le stock de départ ne peut pas être négatif.")
+            except InvalidOperation:
+                erreurs.append("Stock de départ invalide.")
+        if capacite is not None and stock is not None and stock > capacite:
+            erreurs.append("Le stock de départ ne peut pas dépasser la capacité de la cuve.")
+
+        if not erreurs:
+            maintenant = timezone.now()
+            aujourdhui = timezone.localtime(maintenant).date()
+            Cuve.objects.create(station=station, carburant=carburant, capacite=capacite, actif=True)
+            # Jauge = stock AGREGE de toutes les cuves d un meme carburant (jamais par
+            # cuve individuelle, cf. docstring du modele) — le stock de depart de cette
+            # nouvelle cuve S AJOUTE a la derniere jauge existante, jamais une jauge
+            # concurrente independante (bug d integrite deja rencontre et corrige).
+            derniere_jauge = Jauge.objects.filter(
+                station=station, carburant=carburant
+            ).order_by("-date_mesure").first()
+            stock_total = (derniere_jauge.quantite if derniere_jauge else 0) + stock
+            # update_or_create car Jauge a une contrainte unique_together sur
+            # (station, carburant, date_jauge) — une jauge du jour peut deja exister
+            # (ex: celle creee a l instant meme de la creation de la station), il faut
+            # alors la METTRE A JOUR plutot que d en creer une seconde, sous peine de
+            # IntegrityError (bug deja rencontre et corrige).
+            Jauge.objects.update_or_create(
+                station=station, carburant=carburant, date_jauge=aujourdhui,
+                defaults={"quantite": stock_total, "date_mesure": maintenant},
+            )
+            return redirect("accounts:admin_station_detail", station_id=station.pk)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "station": station,
+        "erreurs": erreurs,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_cuve_creer.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_cuve_gerer(request, cuve_id):
+    """Gestion d une cuve individuelle : capacite, statut actif/inactif (chantier
+    Cuves etape 3/5). Toute modification qui reduirait la capacite ACTIVE totale du
+    carburant en dessous du stock actuellement mesure (derniere Jauge) est bloquee —
+    jamais un stock affiche qui ne tiendrait plus physiquement dans les cuves
+    restantes disponibles."""
+    from decimal import Decimal, InvalidOperation
+
+    from django.db.models import Sum
+    from django.shortcuts import get_object_or_404
+
+    from cuves.models import Cuve, Jauge
+
+    employee = request.employee
+    societe = request.societe
+    cuve = get_object_or_404(Cuve, pk=cuve_id)
+    station = cuve.station
+
+    derniere_jauge = Jauge.objects.filter(
+        station=station, carburant=cuve.carburant
+    ).order_by("-date_mesure").first()
+    stock_actuel = derniere_jauge.quantite if derniere_jauge else 0
+
+    erreurs = []
+
+    if request.method == "POST":
+        capacite_brute = request.POST.get("capacite", "").strip()
+        nouveau_actif = request.POST.get("actif") == "1"
+
+        capacite = None
+        if not capacite_brute:
+            erreurs.append("La capacité est obligatoire.")
+        else:
+            try:
+                capacite = Decimal(capacite_brute)
+                if capacite <= 0:
+                    erreurs.append("La capacité doit être supérieure à zéro.")
+            except InvalidOperation:
+                erreurs.append("Capacité invalide.")
+
+        if capacite is not None:
+            autres_cuves_actives = Cuve.objects.filter(
+                station=station, carburant=cuve.carburant, actif=True
+            ).exclude(pk=cuve.pk)
+            capacite_autres = autres_cuves_actives.aggregate(total=Sum("capacite"))["total"] or 0
+            capacite_totale_projetee = capacite_autres + (capacite if nouveau_actif else 0)
+            if capacite_totale_projetee < stock_actuel:
+                erreurs.append(
+                    f"Impossible : la capacité active totale du {cuve.get_carburant_display()} "
+                    f"passerait à {capacite_totale_projetee} L, en dessous du stock actuellement "
+                    f"mesuré ({stock_actuel} L)."
+                )
+
+        if not erreurs:
+            cuve.capacite = capacite
+            cuve.actif = nouveau_actif
+            cuve.save()
+            return redirect("accounts:admin_station_detail", station_id=station.pk)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "cuve": cuve,
+        "station": station,
+        "stock_actuel": stock_actuel,
+        "erreurs": erreurs,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_cuve_gerer.html", contexte)
