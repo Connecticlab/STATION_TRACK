@@ -14,9 +14,11 @@ table td + td, table th + th { border-left: 1px solid var(--line); }
       <h1>{{ station.nom }}</h1>
       <p>{{ station.adresse|default:"Adresse non renseignée" }} — {% if station.actif %}<span style="color:var(--st-green-text)">Active</span>{% else %}<span style="color:var(--muted)">Inactive</span>{% endif %}</p>
     </div>
-    <div style="display:flex;gap:10px;">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <a href="{% url 'accounts:admin_pompe_creer' station.pk %}" class="action" style="max-width:200px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">+ Ajouter une pompe</a>
       <a href="{% url 'accounts:admin_station_historique' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Historique</a>
+      <a href="{% url 'accounts:admin_station_depenses' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Dépenses</a>
+      <a href="{% url 'accounts:admin_station_jauges' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Jauges</a>
       <a href="{% url 'accounts:admin_station_gerer' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--line);color:var(--text);">Gérer</a>
     </div>
   </div>

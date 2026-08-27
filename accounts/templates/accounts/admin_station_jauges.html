@@ -1,0 +1,74 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — Jauges {{ station.nom }}{% endblock %}
+
+{% block extra_style %}
+.filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
+.filter-bar select{
+  background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;
+  padding:9px 12px;font-size:12px;font-family:inherit
+}
+table th,table td{text-align:center;}
+table th:first-child,table td:first-child{text-align:left;}
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Jauges — {{ station.nom }}</h1>
+      <p>{{ jauges|length }} relevé(s) de jauge</p>
+    </div>
+    <a href="{% url 'accounts:admin_station_detail' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--line);color:var(--text);">Retour</a>
+  </div>
+
+  <form method="get" class="filter-bar">
+    <select name="mois" onchange="this.form.submit()">
+      <option value="">Tous les mois</option>
+      <option value="1" {% if mois_filtre == "1" %}selected{% endif %}>Janvier</option>
+      <option value="2" {% if mois_filtre == "2" %}selected{% endif %}>Février</option>
+      <option value="3" {% if mois_filtre == "3" %}selected{% endif %}>Mars</option>
+      <option value="4" {% if mois_filtre == "4" %}selected{% endif %}>Avril</option>
+      <option value="5" {% if mois_filtre == "5" %}selected{% endif %}>Mai</option>
+      <option value="6" {% if mois_filtre == "6" %}selected{% endif %}>Juin</option>
+      <option value="7" {% if mois_filtre == "7" %}selected{% endif %}>Juillet</option>
+      <option value="8" {% if mois_filtre == "8" %}selected{% endif %}>Août</option>
+      <option value="9" {% if mois_filtre == "9" %}selected{% endif %}>Septembre</option>
+      <option value="10" {% if mois_filtre == "10" %}selected{% endif %}>Octobre</option>
+      <option value="11" {% if mois_filtre == "11" %}selected{% endif %}>Novembre</option>
+      <option value="12" {% if mois_filtre == "12" %}selected{% endif %}>Décembre</option>
+    </select>
+    <select name="annee" onchange="this.form.submit()">
+      <option value="">Toutes les années</option>
+      {% for annee in annees_disponibles %}
+        <option value="{{ annee }}" {% if annee_filtre == annee|stringformat:"s" %}selected{% endif %}>{{ annee }}</option>
+      {% endfor %}
+    </select>
+    {% if annee_filtre or mois_filtre %}
+      <a href="{% url 'accounts:admin_station_jauges' station.pk %}" class="action" style="padding:9px 16px;font-size:12px;max-width:150px;border-color:var(--line);color:var(--text);">Réinitialiser</a>
+    {% endif %}
+  </form>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Carburant</th>
+          <th>Quantité mesurée</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for jauge in jauges %}
+        <tr>
+          <td>{{ jauge.date_jauge|date:"d/m/Y" }}</td>
+          <td style="text-align:left;">{{ jauge.get_carburant_display }}</td>
+          <td style="font-weight:700;">{{ jauge.quantite }} L</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" style="color:var(--muted);">Aucune jauge enregistrée.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

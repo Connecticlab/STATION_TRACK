@@ -2001,3 +2001,88 @@ def admin_station_historique(request, station_id):
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_station_historique.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_station_depenses(request, station_id):
+    """Historique des depenses de caisse d une station, filtrable par mois/annee,
+    meme pattern deja etabli pour les autres ecrans d historique."""
+    from django.shortcuts import get_object_or_404
+
+    from caisse.models import DepenseCaisse
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+    station = get_object_or_404(Station, pk=station_id)
+
+    depenses_brutes = DepenseCaisse.objects.filter(station=station)
+
+    annees_disponibles = sorted(
+        set(depenses_brutes.values_list("date_heure__year", flat=True)), reverse=True
+    )
+
+    annee_filtre = request.GET.get("annee", "").strip()
+    mois_filtre = request.GET.get("mois", "").strip()
+
+    depenses = depenses_brutes.select_related("employee").order_by("-date_heure")
+    if annee_filtre:
+        depenses = depenses.filter(date_heure__year=annee_filtre)
+    if mois_filtre:
+        depenses = depenses.filter(date_heure__month=mois_filtre)
+
+    total = sum((d.montant for d in depenses), 0)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "station": station,
+        "depenses": depenses,
+        "total": total,
+        "annees_disponibles": annees_disponibles,
+        "annee_filtre": annee_filtre,
+        "mois_filtre": mois_filtre,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_station_depenses.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_station_jauges(request, station_id):
+    """Historique des jauges (releves de stock carburant) d une station, filtrable
+    par mois/annee, meme pattern deja etabli."""
+    from django.shortcuts import get_object_or_404
+
+    from cuves.models import Jauge
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+    station = get_object_or_404(Station, pk=station_id)
+
+    jauges_brutes = Jauge.objects.filter(station=station)
+
+    annees_disponibles = sorted(
+        set(jauges_brutes.values_list("date_jauge__year", flat=True)), reverse=True
+    )
+
+    annee_filtre = request.GET.get("annee", "").strip()
+    mois_filtre = request.GET.get("mois", "").strip()
+
+    jauges = jauges_brutes.order_by("-date_jauge", "carburant")
+    if annee_filtre:
+        jauges = jauges.filter(date_jauge__year=annee_filtre)
+    if mois_filtre:
+        jauges = jauges.filter(date_jauge__month=mois_filtre)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "station": station,
+        "jauges": jauges,
+        "annees_disponibles": annees_disponibles,
+        "annee_filtre": annee_filtre,
+        "mois_filtre": mois_filtre,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_station_jauges.html", contexte)
