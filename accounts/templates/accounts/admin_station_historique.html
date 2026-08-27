@@ -1,16 +1,12 @@
 {% extends "accounts/admin_base.html" %}
 {% load formatage %}
 
-{% block title %}StationTrack — Historique {{ cible.nom_complet }}{% endblock %}
+{% block title %}StationTrack — Historique {{ station.nom }}{% endblock %}
 
 {% block extra_style %}
 .jour-titre{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--st-orange-text);margin:0 0 14px;}
 table th,table td{text-align:center;}
 table th:first-child,table td:first-child{text-align:left;}
-.resultat-badge{font-size:9px;padding:4px 10px;border-radius:99px;font-weight:700;text-transform:uppercase;}
-.resultat-badge.exact{background:rgba(31,174,99,.15);color:var(--st-green-text);}
-.resultat-badge.surplus{background:rgba(23,105,255,.15);color:var(--st-blue-text);}
-.resultat-badge.manquant{background:var(--st-red-bg);color:var(--st-red-text);}
 .filter-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
 .filter-bar select{
   background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:8px;
@@ -21,21 +17,19 @@ table th:first-child,table td:first-child{text-align:left;}
 {% block content %}
   <div class="head">
     <div>
-      <h1>Historique — {{ cible.nom_complet }}</h1>
-      <p>{{ cible.get_role_display }}{% if cible.station %} — {{ cible.station.nom }}{% endif %}</p>
+      <h1>Historique — {{ station.nom }}</h1>
+      <p>Relevés officiels (Gérant) de toutes les pompes de la station</p>
     </div>
-    <a href="{% url 'accounts:admin_employe_gerer' cible.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--line);color:var(--text);">Retour</a>
+    <a href="{% url 'accounts:admin_station_detail' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--line);color:var(--text);">Retour</a>
   </div>
 
   <form method="get" class="filter-bar">
-    {% if pompistes_historique %}
-      <select name="pompiste" onchange="this.form.submit()">
-        <option value="">Tous les pompistes</option>
-        {% for pompiste in pompistes_historique %}
-          <option value="{{ pompiste.pk }}" {% if pompiste_filtre_id == pompiste.pk|stringformat:"s" %}selected{% endif %}>{{ pompiste.nom_complet }}</option>
-        {% endfor %}
-      </select>
-    {% endif %}
+    <select name="pompiste" onchange="this.form.submit()">
+      <option value="">Tous les pompistes</option>
+      {% for pompiste in pompistes_historique %}
+        <option value="{{ pompiste.pk }}" {% if pompiste_filtre_id == pompiste.pk|stringformat:"s" %}selected{% endif %}>{{ pompiste.nom_complet }}</option>
+      {% endfor %}
+    </select>
     <select name="mois" onchange="this.form.submit()">
       <option value="">Tous les mois</option>
       <option value="1" {% if mois_filtre == "1" %}selected{% endif %}>Janvier</option>
@@ -58,7 +52,7 @@ table th:first-child,table td:first-child{text-align:left;}
       {% endfor %}
     </select>
     {% if pompiste_filtre_id or annee_filtre or mois_filtre %}
-      <a href="{% url 'accounts:admin_employe_historique' cible.pk %}" class="action" style="padding:9px 16px;font-size:12px;max-width:150px;border-color:var(--line);color:var(--text);">Réinitialiser</a>
+      <a href="{% url 'accounts:admin_station_historique' station.pk %}" class="action" style="padding:9px 16px;font-size:12px;max-width:150px;border-color:var(--line);color:var(--text);">Réinitialiser</a>
     {% endif %}
   </form>
 
@@ -69,7 +63,7 @@ table th:first-child,table td:first-child{text-align:left;}
       <table style="margin-bottom:18px;">
         <thead>
           <tr>
-            {% if cible.role != "pompiste" %}<th>Pompiste</th>{% endif %}
+            <th>Pompiste</th>
             <th>Pompe</th>
             <th>Carburant</th>
             <th>Début</th>
@@ -80,7 +74,7 @@ table th:first-child,table td:first-child{text-align:left;}
         <tbody>
           {% for ligne in jour.lignes %}
           <tr>
-            {% if cible.role != "pompiste" %}<td style="text-align:left;">{{ ligne.pompiste.nom_complet }}</td>{% endif %}
+            <td style="text-align:left;">{{ ligne.pompiste.nom_complet }}</td>
             <td>P{{ ligne.pistolet.face.pompe.numero }}/F{{ ligne.pistolet.face.numero }}</td>
             <td>{{ ligne.pistolet.get_carburant_display }} {{ ligne.pistolet.numero }}</td>
             <td>{{ ligne.depart|default:"—" }}</td>
@@ -98,35 +92,23 @@ table th:first-child,table td:first-child{text-align:left;}
             <div class="val" style="font-size:16px;">{{ litres }} L</div>
           </div>
         {% endfor %}
-        {% if jour.session and jour.session.resultat %}
-          <div class="card kpi" style="min-height:auto;padding:12px;">
-            <div class="label">Théorique</div>
-            <div class="val" style="font-size:16px;">{{ jour.session.montant_theorique_total|fcfa }}</div>
-          </div>
-          <div class="card kpi" style="min-height:auto;padding:12px;">
-            <div class="label">Encaissé déclaré</div>
-            <div class="val" style="font-size:16px;">{{ jour.session.montant_encaisse|fcfa }}</div>
-          </div>
-          <div class="card kpi" style="min-height:auto;padding:12px;">
-            <div class="label">Résultat</div>
-            <div class="val" style="font-size:14px;">
-              <span class="resultat-badge {{ jour.session.resultat }}">
-                {% if jour.session.resultat == "exact" %}Exact
-                {% elif jour.session.resultat == "surplus" %}Surplus
-                {% else %}Manquant{% endif %}
-              </span>
-            </div>
-            {% if jour.session.montant_ecart %}<div class="hint">{{ jour.session.montant_ecart|fcfa }}</div>{% endif %}
-          </div>
-        {% endif %}
+        <div class="card kpi" style="min-height:auto;padding:12px;">
+          <div class="label">Exact</div>
+          <div class="val" style="font-size:16px;">{{ jour.nb_exact }}</div>
+        </div>
+        <div class="card kpi" style="min-height:auto;padding:12px;">
+          <div class="label">Surplus</div>
+          <div class="val" style="font-size:16px;color:var(--st-blue-text);">{{ jour.nb_surplus }}</div>
+        </div>
+        <div class="card kpi" style="min-height:auto;padding:12px;">
+          <div class="label">Manquant</div>
+          <div class="val" style="font-size:16px;color:{% if jour.nb_manquant > 0 %}var(--st-red-text){% else %}var(--text){% endif %};">{{ jour.nb_manquant }}</div>
+        </div>
       </div>
-      {% if cible.role == "pompiste" and not jour.session.resultat %}
-        <p style="color:var(--muted);font-size:11.5px;margin-top:10px;">Confrontation pas encore effectuée pour cette journée.</p>
-      {% endif %}
     </div>
   {% empty %}
     <div class="card">
-      <p style="color:var(--muted);">Aucun relevé enregistré pour cet employé.</p>
+      <p style="color:var(--muted);">Aucun relevé enregistré pour cette station.</p>
     </div>
   {% endfor %}
 {% endblock %}

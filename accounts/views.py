@@ -1760,7 +1760,9 @@ def admin_employe_historique(request, employee_id):
     (jamais une liste plate). Bifurque selon le role : un Pompiste voit ses propres
     releves (ReleveIndexPompiste) ; un Gerant/Chef de piste voit ses releves de
     verification (ReleveIndexGerant), avec le nom du pompiste verifie a chaque fois
-    puisqu'un seul Gerant peut verifier plusieurs pompistes le meme jour."""
+    puisqu'un seul Gerant peut verifier plusieurs pompistes le meme jour.
+    Filtrable par mois/annee (et par pompiste verifie pour un Gerant/Chef de piste),
+    meme logique de filtre que admin_station_historique."""
     from django.shortcuts import get_object_or_404
     from django.utils import timezone
 
@@ -1770,12 +1772,26 @@ def admin_employe_historique(request, employee_id):
     societe = request.societe
     cible = get_object_or_404(Employee, pk=employee_id)
 
+    annee_filtre = request.GET.get("annee", "").strip()
+    mois_filtre = request.GET.get("mois", "").strip()
+    pompiste_filtre_id = request.GET.get("pompiste", "").strip()
+
     jours = []
+    pompistes_historique = None
 
     if cible.role == Employee.POMPISTE:
         releves = ReleveIndexPompiste.objects.filter(employee=cible).select_related(
             "pistolet__face__pompe"
-        ).order_by("-date_heure")
+        )
+
+        annees_disponibles = sorted(
+            set(releves.values_list("date_heure__year", flat=True)), reverse=True
+        )
+        if annee_filtre:
+            releves = releves.filter(date_heure__year=annee_filtre)
+        if mois_filtre:
+            releves = releves.filter(date_heure__month=mois_filtre)
+        releves = releves.order_by("-date_heure")
 
         par_jour = {}
         for releve in releves:
@@ -1814,9 +1830,24 @@ def admin_employe_historique(request, employee_id):
             })
 
     else:
-        releves = ReleveIndexGerant.objects.filter(employee=cible).select_related(
-            "pistolet__face__pompe", "employee_pompiste"
-        ).order_by("-date_heure")
+        releves_bruts = ReleveIndexGerant.objects.filter(employee=cible)
+
+        pompistes_historique = Employee.objects.filter(
+            pk__in=releves_bruts.values_list("employee_pompiste_id", flat=True).distinct()
+        ).order_by("nom_complet")
+
+        annees_disponibles = sorted(
+            set(releves_bruts.values_list("date_heure__year", flat=True)), reverse=True
+        )
+
+        releves = releves_bruts.select_related("pistolet__face__pompe", "employee_pompiste")
+        if pompiste_filtre_id:
+            releves = releves.filter(employee_pompiste_id=pompiste_filtre_id)
+        if annee_filtre:
+            releves = releves.filter(date_heure__year=annee_filtre)
+        if mois_filtre:
+            releves = releves.filter(date_heure__month=mois_filtre)
+        releves = releves.order_by("-date_heure")
 
         par_jour = {}
         for releve in releves:
@@ -1857,6 +1888,116 @@ def admin_employe_historique(request, employee_id):
         "societe": societe,
         "cible": cible,
         "jours": jours,
+        "pompistes_historique": pompistes_historique,
+        "annees_disponibles": annees_disponibles,
+        "pompiste_filtre_id": pompiste_filtre_id,
+        "annee_filtre": annee_filtre,
+        "mois_filtre": mois_filtre,
         "vue_active": "employes",
     }
     return render(request, "accounts/admin_employe_historique.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_station_historique(request, station_id):
+    """Historique des relevés d'index de TOUTE une station, regroupe par date puis par
+    pompiste, base sur ReleveIndexGerant (fait foi, source officielle) — jamais
+    ReleveIndexPompiste ici, qui doublerait chaque ligne sans ajouter de valeur pour
+    une vue de supervision au niveau station. Contrairement a l'historique par employe,
+    la station n'a pas de FK directe vers SessionCaisse : on passe par les pistolets
+    de la station pour retrouver tous les employes qui y ont travaille, quelle que
+    soit leur station actuelle (un employe transfere garde son historique intact,
+    attache au pistolet reel utilise, pas a sa station courante)."""
+    from django.shortcuts import get_object_or_404
+    from django.utils import timezone
+
+    from caisse.models import ReleveIndexGerant, SessionCaisse
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+    station = get_object_or_404(Station, pk=station_id)
+
+    releves_bruts = ReleveIndexGerant.objects.filter(pistolet__face__pompe__station=station)
+
+    # Liste des pompistes ayant deja un historique sur cette station (pour le filtre),
+    # toujours calculee AVANT filtrage pour que le menu deroulant reste complet.
+    pompistes_historique = Employee.objects.filter(
+        pk__in=releves_bruts.values_list("employee_pompiste_id", flat=True).distinct()
+    ).order_by("nom_complet")
+
+    annees_disponibles = sorted(
+        set(releves_bruts.values_list("date_heure__year", flat=True)), reverse=True
+    )
+
+    pompiste_filtre_id = request.GET.get("pompiste", "").strip()
+    annee_filtre = request.GET.get("annee", "").strip()
+    mois_filtre = request.GET.get("mois", "").strip()
+
+    releves = releves_bruts.select_related("pistolet__face__pompe", "employee_pompiste").order_by("-date_heure")
+
+    if pompiste_filtre_id:
+        releves = releves.filter(employee_pompiste_id=pompiste_filtre_id)
+    if annee_filtre:
+        releves = releves.filter(date_heure__year=annee_filtre)
+    if mois_filtre:
+        releves = releves.filter(date_heure__month=mois_filtre)
+
+    par_jour = {}
+    for releve in releves:
+        jour = timezone.localtime(releve.date_heure).date()
+        cle = (releve.employee_pompiste_id, releve.pistolet_id)
+        par_jour.setdefault(jour, {}).setdefault(
+            cle, {"pistolet": releve.pistolet, "pompiste": releve.employee_pompiste}
+        )[releve.type_releve] = releve.valeur_index
+
+    jours = []
+    for jour in sorted(par_jour.keys(), reverse=True):
+        lignes = []
+        pompistes_ids = set()
+        for entree in par_jour[jour].values():
+            depart = entree.get(ReleveIndexGerant.DEPART)
+            fin = entree.get(ReleveIndexGerant.FIN)
+            lignes.append({
+                "pistolet": entree["pistolet"],
+                "pompiste": entree["pompiste"],
+                "depart": depart,
+                "fin": fin,
+                "litres": (fin - depart) if (depart is not None and fin is not None) else None,
+            })
+            pompistes_ids.add(entree["pompiste"].pk)
+
+        lignes.sort(key=lambda l: (
+            l["pompiste"].nom_complet,
+            l["pistolet"].face.pompe.numero, l["pistolet"].face.numero, l["pistolet"].numero
+        ))
+
+        totaux_carburant = {}
+        for ligne in lignes:
+            if ligne["litres"] is not None:
+                nom = ligne["pistolet"].get_carburant_display()
+                totaux_carburant[nom] = totaux_carburant.get(nom, 0) + ligne["litres"]
+
+        sessions_jour = SessionCaisse.objects.filter(employee_id__in=pompistes_ids, date=jour)
+        nb_exact = sessions_jour.filter(resultat=SessionCaisse.EXACT).count()
+        nb_surplus = sessions_jour.filter(resultat=SessionCaisse.SURPLUS).count()
+        nb_manquant = sessions_jour.filter(resultat=SessionCaisse.MANQUANT).count()
+
+        jours.append({
+            "date": jour, "lignes": lignes, "totaux_carburant": totaux_carburant,
+            "nb_exact": nb_exact, "nb_surplus": nb_surplus, "nb_manquant": nb_manquant,
+        })
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "station": station,
+        "jours": jours,
+        "pompistes_historique": pompistes_historique,
+        "annees_disponibles": annees_disponibles,
+        "pompiste_filtre_id": pompiste_filtre_id,
+        "annee_filtre": annee_filtre,
+        "mois_filtre": mois_filtre,
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_station_historique.html", contexte)

@@ -27,6 +27,7 @@ urlpatterns = [
     path("admin/stations/<int:station_id>/gerer/", views.admin_station_gerer, name="admin_station_gerer"),
     path("admin/stations/<int:station_id>/supprimer/", views.admin_station_supprimer, name="admin_station_supprimer"),
     path("admin/stations/<int:station_id>/pompes/creer/", views.admin_pompe_creer, name="admin_pompe_creer"),
+    path("admin/stations/<int:station_id>/historique/", views.admin_station_historique, name="admin_station_historique"),
     path("admin/pompes/<int:pompe_id>/gerer/", views.admin_pompe_gerer, name="admin_pompe_gerer"),
     path("admin/pompes/<int:pompe_id>/supprimer/", views.admin_pompe_supprimer, name="admin_pompe_supprimer"),
     path("admin/employes/", views.admin_employes, name="admin_employes"),
