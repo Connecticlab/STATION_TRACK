@@ -1330,11 +1330,14 @@ def admin_station_creer(request):
     (station -> pompe/face/pistolet -> utilisateur, dans cet ordre de dependances).
     Le prix Gasoil ET Essence sont OBLIGATOIRES a la creation — jamais une station
     sans prix configure, qui produirait silencieusement un calcul theorique a 0 FCFA
-    (bug d'integrite financiere deja rencontre et corrige)."""
+    (bug d'integrite financiere deja rencontre et corrige). Meme logique pour la
+    Cuve + Jauge de depart de chaque carburant — sans ca, l ecran Jauge du matin du
+    Gerant reste vide/inutilisable (filtre deja sur les carburants ayant une Cuve)."""
     from decimal import Decimal, InvalidOperation
 
     from django.utils import timezone
 
+    from cuves.models import Cuve, Jauge
     from stations.constants import ESSENCE, GASOIL
     from stations.models import PrixCarburant, Station
 
@@ -1348,6 +1351,10 @@ def admin_station_creer(request):
         adresse = request.POST.get("adresse", "").strip()
         prix_gasoil_brut = request.POST.get("prix_gasoil", "").strip()
         prix_essence_brut = request.POST.get("prix_essence", "").strip()
+        capacite_gasoil_brut = request.POST.get("capacite_gasoil", "").strip()
+        stock_gasoil_brut = request.POST.get("stock_gasoil", "").strip()
+        capacite_essence_brut = request.POST.get("capacite_essence", "").strip()
+        stock_essence_brut = request.POST.get("stock_essence", "").strip()
 
         if not nom:
             erreurs.append("Le nom de la station est obligatoire.")
@@ -1377,6 +1384,52 @@ def admin_station_creer(request):
             except InvalidOperation:
                 erreurs.append("Prix de l'Essence invalide.")
 
+        capacite_gasoil = None
+        stock_gasoil = None
+        if not capacite_gasoil_brut:
+            erreurs.append("La capacité de la cuve Gasoil est obligatoire.")
+        else:
+            try:
+                capacite_gasoil = Decimal(capacite_gasoil_brut)
+                if capacite_gasoil <= 0:
+                    erreurs.append("La capacité de la cuve Gasoil doit être supérieure à zéro.")
+            except InvalidOperation:
+                erreurs.append("Capacité Gasoil invalide.")
+        if not stock_gasoil_brut:
+            erreurs.append("Le stock de départ Gasoil est obligatoire.")
+        else:
+            try:
+                stock_gasoil = Decimal(stock_gasoil_brut)
+                if stock_gasoil < 0:
+                    erreurs.append("Le stock de départ Gasoil ne peut pas être négatif.")
+            except InvalidOperation:
+                erreurs.append("Stock de départ Gasoil invalide.")
+        if capacite_gasoil is not None and stock_gasoil is not None and stock_gasoil > capacite_gasoil:
+            erreurs.append("Le stock de départ Gasoil ne peut pas dépasser la capacité de la cuve.")
+
+        capacite_essence = None
+        stock_essence = None
+        if not capacite_essence_brut:
+            erreurs.append("La capacité de la cuve Essence est obligatoire.")
+        else:
+            try:
+                capacite_essence = Decimal(capacite_essence_brut)
+                if capacite_essence <= 0:
+                    erreurs.append("La capacité de la cuve Essence doit être supérieure à zéro.")
+            except InvalidOperation:
+                erreurs.append("Capacité Essence invalide.")
+        if not stock_essence_brut:
+            erreurs.append("Le stock de départ Essence est obligatoire.")
+        else:
+            try:
+                stock_essence = Decimal(stock_essence_brut)
+                if stock_essence < 0:
+                    erreurs.append("Le stock de départ Essence ne peut pas être négatif.")
+            except InvalidOperation:
+                erreurs.append("Stock de départ Essence invalide.")
+        if capacite_essence is not None and stock_essence is not None and stock_essence > capacite_essence:
+            erreurs.append("Le stock de départ Essence ne peut pas dépasser la capacité de la cuve.")
+
         if not erreurs:
             maintenant = timezone.now()
             station = Station.objects.create(nom=nom, adresse=adresse, actif=True)
@@ -1385,6 +1438,17 @@ def admin_station_creer(request):
             )
             PrixCarburant.objects.create(
                 station=station, carburant=ESSENCE, prix_au_litre=prix_essence, date_debut=maintenant,
+            )
+            aujourdhui = timezone.localtime(maintenant).date()
+            Cuve.objects.create(station=station, carburant=GASOIL, capacite=capacite_gasoil, actif=True)
+            Jauge.objects.create(
+                station=station, carburant=GASOIL, quantite=stock_gasoil,
+                date_jauge=aujourdhui, date_mesure=maintenant,
+            )
+            Cuve.objects.create(station=station, carburant=ESSENCE, capacite=capacite_essence, actif=True)
+            Jauge.objects.create(
+                station=station, carburant=ESSENCE, quantite=stock_essence,
+                date_jauge=aujourdhui, date_mesure=maintenant,
             )
             return redirect("accounts:admin_station_detail", station_id=station.pk)
 

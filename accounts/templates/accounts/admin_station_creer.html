@@ -60,6 +60,29 @@
       <p style="font-size:11.5px;color:var(--muted);margin:-6px 0 16px;">
         Ces prix sont obligatoires : sans eux, le calcul théorique des clôtures de caisse afficherait 0 FCFA.
       </p>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="capacite_gasoil">Capacité cuve Gasoil (L)</label>
+          <input type="number" step="0.01" min="0.01" id="capacite_gasoil" name="capacite_gasoil" required>
+        </div>
+        <div class="field">
+          <label for="stock_gasoil">Stock de départ Gasoil (L)</label>
+          <input type="number" step="0.01" min="0" id="stock_gasoil" name="stock_gasoil" required>
+        </div>
+        <div class="field">
+          <label for="capacite_essence">Capacité cuve Essence (L)</label>
+          <input type="number" step="0.01" min="0.01" id="capacite_essence" name="capacite_essence" required>
+        </div>
+        <div class="field">
+          <label for="stock_essence">Stock de départ Essence (L)</label>
+          <input type="number" step="0.01" min="0" id="stock_essence" name="stock_essence" required>
+        </div>
+      </div>
+      <p style="font-size:11.5px;color:var(--muted);margin:-6px 0 16px;">
+        Une cuve par carburant est créée automatiquement, avec ce stock de départ. D'autres cuves pourront être ajoutées plus tard si la station en compte plusieurs pour un même carburant.
+      </p>
+
       <button type="submit" class="action big" style="max-width:200px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Créer la station</button>
     </form>
   </div>
