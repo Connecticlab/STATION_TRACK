@@ -1,0 +1,92 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — Historique {{ cible.nom_complet }}{% endblock %}
+
+{% block extra_style %}
+.jour-titre{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--st-orange-text);margin:0 0 14px;}
+table th,table td{text-align:center;}
+table th:first-child,table td:first-child{text-align:left;}
+.resultat-badge{font-size:9px;padding:4px 10px;border-radius:99px;font-weight:700;text-transform:uppercase;}
+.resultat-badge.exact{background:rgba(31,174,99,.15);color:var(--st-green-text);}
+.resultat-badge.surplus{background:rgba(23,105,255,.15);color:var(--st-blue-text);}
+.resultat-badge.manquant{background:var(--st-red-bg);color:var(--st-red-text);}
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Historique — {{ cible.nom_complet }}</h1>
+      <p>{{ cible.get_role_display }}{% if cible.station %} — {{ cible.station.nom }}{% endif %}</p>
+    </div>
+    <a href="{% url 'accounts:admin_employe_gerer' cible.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--line);color:var(--text);">Retour</a>
+  </div>
+
+  {% for jour in jours %}
+    <div class="card" style="margin-bottom:24px;">
+      <div class="jour-titre">{{ jour.date|date:"l d F Y" }}</div>
+
+      <table style="margin-bottom:18px;">
+        <thead>
+          <tr>
+            {% if cible.role != "pompiste" %}<th>Pompiste</th>{% endif %}
+            <th>Pompe</th>
+            <th>Carburant</th>
+            <th>Début</th>
+            <th>Fin</th>
+            <th>Vendu</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for ligne in jour.lignes %}
+          <tr>
+            {% if cible.role != "pompiste" %}<td style="text-align:left;">{{ ligne.pompiste.nom_complet }}</td>{% endif %}
+            <td>P{{ ligne.pistolet.face.pompe.numero }}/F{{ ligne.pistolet.face.numero }}</td>
+            <td>{{ ligne.pistolet.get_carburant_display }} {{ ligne.pistolet.numero }}</td>
+            <td>{{ ligne.depart|default:"—" }}</td>
+            <td>{{ ligne.fin|default:"—" }}</td>
+            <td style="font-weight:700;">{{ ligne.litres|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="grid kpis">
+        {% for nom, litres in jour.totaux_carburant.items %}
+          <div class="card kpi" style="min-height:auto;padding:12px;">
+            <div class="label">{{ nom }} vendu</div>
+            <div class="val" style="font-size:16px;">{{ litres }} L</div>
+          </div>
+        {% endfor %}
+        {% if jour.session and jour.session.resultat %}
+          <div class="card kpi" style="min-height:auto;padding:12px;">
+            <div class="label">Théorique</div>
+            <div class="val" style="font-size:16px;">{{ jour.session.montant_theorique_total|fcfa }}</div>
+          </div>
+          <div class="card kpi" style="min-height:auto;padding:12px;">
+            <div class="label">Encaissé déclaré</div>
+            <div class="val" style="font-size:16px;">{{ jour.session.montant_encaisse|fcfa }}</div>
+          </div>
+          <div class="card kpi" style="min-height:auto;padding:12px;">
+            <div class="label">Résultat</div>
+            <div class="val" style="font-size:14px;">
+              <span class="resultat-badge {{ jour.session.resultat }}">
+                {% if jour.session.resultat == "exact" %}Exact
+                {% elif jour.session.resultat == "surplus" %}Surplus
+                {% else %}Manquant{% endif %}
+              </span>
+            </div>
+            {% if jour.session.montant_ecart %}<div class="hint">{{ jour.session.montant_ecart|fcfa }}</div>{% endif %}
+          </div>
+        {% endif %}
+      </div>
+      {% if cible.role == "pompiste" and not jour.session.resultat %}
+        <p style="color:var(--muted);font-size:11.5px;margin-top:10px;">Confrontation pas encore effectuée pour cette journée.</p>
+      {% endif %}
+    </div>
+  {% empty %}
+    <div class="card">
+      <p style="color:var(--muted);">Aucun relevé enregistré pour cet employé.</p>
+    </div>
+  {% endfor %}
+{% endblock %}

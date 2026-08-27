@@ -33,5 +33,6 @@ urlpatterns = [
     path("admin/employes/creer/", views.admin_employe_creer, name="admin_employe_creer"),
     path("admin/employes/<int:employee_id>/toggle-actif/", views.admin_employe_toggle_actif, name="admin_employe_toggle_actif"),
     path("admin/employes/<int:employee_id>/gerer/", views.admin_employe_gerer, name="admin_employe_gerer"),
+    path("admin/employes/<int:employee_id>/historique/", views.admin_employe_historique, name="admin_employe_historique"),
     path("admin/employes/<int:employee_id>/supprimer/", views.admin_employe_supprimer, name="admin_employe_supprimer"),
 ]

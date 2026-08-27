@@ -1752,3 +1752,111 @@ def admin_employe_creer(request):
         "vue_active": "employes",
     }
     return render(request, "accounts/admin_employe_creer.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_employe_historique(request, employee_id):
+    """Historique des relevés d'index d'un employe, regroupe par date puis par pistolet
+    (jamais une liste plate). Bifurque selon le role : un Pompiste voit ses propres
+    releves (ReleveIndexPompiste) ; un Gerant/Chef de piste voit ses releves de
+    verification (ReleveIndexGerant), avec le nom du pompiste verifie a chaque fois
+    puisqu'un seul Gerant peut verifier plusieurs pompistes le meme jour."""
+    from django.shortcuts import get_object_or_404
+    from django.utils import timezone
+
+    from caisse.models import ReleveIndexGerant, ReleveIndexPompiste, SessionCaisse
+
+    employee = request.employee
+    societe = request.societe
+    cible = get_object_or_404(Employee, pk=employee_id)
+
+    jours = []
+
+    if cible.role == Employee.POMPISTE:
+        releves = ReleveIndexPompiste.objects.filter(employee=cible).select_related(
+            "pistolet__face__pompe"
+        ).order_by("-date_heure")
+
+        par_jour = {}
+        for releve in releves:
+            jour = timezone.localtime(releve.date_heure).date()
+            par_jour.setdefault(jour, {}).setdefault(
+                releve.pistolet_id, {"pistolet": releve.pistolet}
+            )[releve.type_releve] = releve.valeur_index
+
+        for jour in sorted(par_jour.keys(), reverse=True):
+            lignes = []
+            for entree in par_jour[jour].values():
+                depart = entree.get(ReleveIndexPompiste.DEPART)
+                fin = entree.get(ReleveIndexPompiste.FIN)
+                lignes.append({
+                    "pistolet": entree["pistolet"],
+                    "depart": depart,
+                    "fin": fin,
+                    "litres": (fin - depart) if (depart is not None and fin is not None) else None,
+                })
+            # Tri par Pompe/Face/Pistolet — jamais l'ordre d'arrivee des relevés,
+            # illisible pour une supervision serieuse.
+            lignes.sort(key=lambda l: (
+                l["pistolet"].face.pompe.numero, l["pistolet"].face.numero, l["pistolet"].numero
+            ))
+
+            totaux_carburant = {}
+            for ligne in lignes:
+                if ligne["litres"] is not None:
+                    nom = ligne["pistolet"].get_carburant_display()
+                    totaux_carburant[nom] = totaux_carburant.get(nom, 0) + ligne["litres"]
+
+            session = SessionCaisse.objects.filter(employee=cible, date=jour).first()
+
+            jours.append({
+                "date": jour, "lignes": lignes, "totaux_carburant": totaux_carburant, "session": session,
+            })
+
+    else:
+        releves = ReleveIndexGerant.objects.filter(employee=cible).select_related(
+            "pistolet__face__pompe", "employee_pompiste"
+        ).order_by("-date_heure")
+
+        par_jour = {}
+        for releve in releves:
+            jour = timezone.localtime(releve.date_heure).date()
+            cle = (releve.employee_pompiste_id, releve.pistolet_id)
+            par_jour.setdefault(jour, {}).setdefault(
+                cle, {"pistolet": releve.pistolet, "pompiste": releve.employee_pompiste}
+            )[releve.type_releve] = releve.valeur_index
+
+        for jour in sorted(par_jour.keys(), reverse=True):
+            lignes = []
+            for entree in par_jour[jour].values():
+                depart = entree.get(ReleveIndexGerant.DEPART)
+                fin = entree.get(ReleveIndexGerant.FIN)
+                lignes.append({
+                    "pistolet": entree["pistolet"],
+                    "pompiste": entree["pompiste"],
+                    "depart": depart,
+                    "fin": fin,
+                    "litres": (fin - depart) if (depart is not None and fin is not None) else None,
+                })
+
+            lignes.sort(key=lambda l: (
+                l["pompiste"].nom_complet,
+                l["pistolet"].face.pompe.numero, l["pistolet"].face.numero, l["pistolet"].numero
+            ))
+
+            totaux_carburant = {}
+            for ligne in lignes:
+                if ligne["litres"] is not None:
+                    nom = ligne["pistolet"].get_carburant_display()
+                    totaux_carburant[nom] = totaux_carburant.get(nom, 0) + ligne["litres"]
+
+            jours.append({"date": jour, "lignes": lignes, "totaux_carburant": totaux_carburant, "session": None})
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "cible": cible,
+        "jours": jours,
+        "vue_active": "employes",
+    }
+    return render(request, "accounts/admin_employe_historique.html", contexte)
