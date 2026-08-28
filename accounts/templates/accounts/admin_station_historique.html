@@ -18,11 +18,13 @@ table th:first-child,table td:first-child{text-align:left;}
   <div class="head">
     <div>
       <h1>Historique — {{ station.nom }}</h1>
-      <p>Relevés officiels (Gérant) de toutes les pompes de la station</p>
+      <p id="station-subtitle">Relevés officiels (Gérant) de toutes les pompes de la station</p>
     </div>
-    <a href="{% url 'accounts:admin_station_detail' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--line);color:var(--text);">Retour</a>
   </div>
 
+  {% include "accounts/_station_subnav.html" %}
+
+  <div id="station-content">
   <form method="get" class="filter-bar">
     <select name="pompiste" onchange="this.form.submit()">
       <option value="">Tous les pompistes</option>
@@ -111,4 +113,5 @@ table th:first-child,table td:first-child{text-align:left;}
       <p style="color:var(--muted);">Aucun relevé enregistré pour cette station.</p>
     </div>
   {% endfor %}
+  </div>
 {% endblock %}

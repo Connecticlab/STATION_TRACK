@@ -4,85 +4,24 @@
 {% block title %}StationTrack — {{ station.nom }}{% endblock %}
 
 {% block extra_style %}
-table td + td, table th + th { border-left: 1px solid var(--line); }
 .card{width:100%}
-table.no-lines th, table.no-lines td{text-align:center;}
-table.no-lines th:first-child, table.no-lines td:first-child{text-align:left;}
-table.no-lines th:last-child, table.no-lines td:last-child{border-left:none;border-bottom:none;}
 {% endblock %}
 
 {% block content %}
   <div class="head">
     <div>
-      <h1>{{ station.nom }}</h1>
-      <p>{{ station.adresse|default:"Adresse non renseignée" }} — {% if station.actif %}<span style="color:var(--st-green-text)">Active</span>{% else %}<span style="color:var(--muted)">Inactive</span>{% endif %}</p>
+      <h1>Pompes — {{ station.nom }}</h1>
+      <p id="station-subtitle">{{ station.adresse|default:"Adresse non renseignée" }} — {% if station.actif %}<span style="color:var(--st-green-text)">Active</span>{% else %}<span style="color:var(--muted)">Inactive</span>{% endif %}</p>
     </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <div id="station-head-actions" style="gap:10px;flex-wrap:wrap;">
       <a href="{% url 'accounts:admin_pompe_creer' station.pk %}" class="action" style="max-width:200px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">+ Ajouter une pompe</a>
-      <a href="{% url 'accounts:admin_cuve_creer' station.pk %}" class="action" style="max-width:180px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">+ Ajouter une cuve</a>
-      <a href="{% url 'accounts:admin_station_historique' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Historique</a>
-      <a href="{% url 'accounts:admin_station_depenses' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Dépenses</a>
-      <a href="{% url 'accounts:admin_station_jauges' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--blue);color:var(--blue);">Jauges</a>
       <a href="{% url 'accounts:admin_station_gerer' station.pk %}" class="action" style="max-width:150px;padding:10px 16px;font-size:11px;border-color:var(--line);color:var(--text);">Gérer</a>
     </div>
   </div>
 
-  <div class="card" style="margin-bottom:16px;">
-    <h3>Cuves &amp; Stock</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Carburant</th>
-          <th>Nb cuves</th>
-          <th>Capacité totale</th>
-          <th>Stock actuel</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for resume in resume_carburants %}
-        <tr>
-          <td style="text-align:left;">{{ resume.carburant }}</td>
-          <td>{{ resume.nb_cuves }}</td>
-          <td>{{ resume.capacite_totale }} L</td>
-          <td style="font-weight:700;">
-            {% if resume.derniere_jauge %}{{ resume.derniere_jauge.quantite }} L
-              <span style="font-weight:400;color:var(--muted);font-size:11px;">({{ resume.derniere_jauge.date_jauge|date:"d/m/Y" }})</span>
-            {% else %}<span style="color:var(--muted);font-weight:400;">Aucune jauge</span>{% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4" style="color:var(--muted);">Aucune cuve enregistrée pour cette station.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  {% include "accounts/_station_subnav.html" %}
 
-  <div class="card" style="margin-bottom:16px;">
-    <h3>Détail des cuves</h3>
-    <table class="no-lines">
-      <thead>
-        <tr>
-          <th>Carburant</th>
-          <th>Capacité</th>
-          <th>Statut</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for cuve in cuves %}
-        <tr>
-          <td>{{ cuve.get_carburant_display }}</td>
-          <td>{{ cuve.capacite }} L</td>
-          <td>{% if cuve.actif %}<span class="status">Actif</span>{% else %}<span class="status muted">Inactif</span>{% endif %}</td>
-          <td><a href="{% url 'accounts:admin_cuve_gerer' cuve.pk %}" class="action" style="max-width:100px;padding:6px 12px;font-size:10.5px;border-color:var(--line);color:var(--text);">Gérer</a></td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4" style="color:var(--muted);text-align:left;">Aucune cuve enregistrée pour cette station.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
+  <div id="station-content">
   {% for groupe_pompe in structure %}
     <div class="card" style="margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
@@ -127,4 +66,5 @@ table.no-lines th:last-child, table.no-lines td:last-child{border-left:none;bord
       <p style="color:var(--muted);">Aucune pompe enregistrée pour cette station.</p>
     </div>
   {% endfor %}
+  </div>
 {% endblock %}

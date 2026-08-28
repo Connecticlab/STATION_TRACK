@@ -1059,7 +1059,8 @@ def admin_stations(request):
 @require_employee_login(roles=[Employee.ADMIN_SIEGE])
 def admin_station_detail(request, station_id):
     """Detail d'UNE station : toutes ses pompes/faces/pistolets, structures (jamais une
-    liste plate), reutilise le meme helper que les ecrans Pompiste/Gerant."""
+    liste plate), reutilise le meme helper que les ecrans Pompiste/Gerant. Cuves
+    deplacees vers l onglet dedie admin_station_cuves (chantier navigation)."""
     from django.shortcuts import get_object_or_404
 
     from stations.models import Pistolet, Station
@@ -1071,40 +1072,12 @@ def admin_station_detail(request, station_id):
     pistolets = Pistolet.objects.filter(face__pompe__station=station)
     structure = _structurer_pistolets_par_pompe_face(pistolets)
 
-    from django.db.models import Sum
-
-    from cuves.models import Cuve, Jauge
-
-    # Jauge = stock AGREGE par carburant (jamais par cuve individuelle, cf. docstring
-    # du modele) — on affiche donc un resume PAR CARBURANT (capacite totale + derniere
-    # jauge unique), jamais une jauge repetee identique sur chaque ligne de cuve
-    # (bug d affichage trompeur deja rencontre et corrige).
-    cuves = Cuve.objects.filter(station=station).order_by("carburant")
-    resume_carburants = []
-    for carburant, libelle in Cuve._meta.get_field("carburant").choices:
-        cuves_carburant = cuves.filter(carburant=carburant)
-        if not cuves_carburant.exists():
-            continue
-        derniere_jauge = Jauge.objects.filter(
-            station=station, carburant=carburant
-        ).order_by("-date_mesure").first()
-        # Seules les cuves ACTIVES comptent dans la capacite disponible — une cuve
-        # desactivee (maintenance/panne) ne doit jamais etre consideree comme espace
-        # de stockage utilisable, meme logique que pour les pompes.
-        resume_carburants.append({
-            "carburant": libelle,
-            "nb_cuves": cuves_carburant.count(),
-            "capacite_totale": cuves_carburant.filter(actif=True).aggregate(total=Sum("capacite"))["total"] or 0,
-            "derniere_jauge": derniere_jauge,
-        })
-
     contexte = {
         "employee": employee,
         "societe": societe,
         "station": station,
         "structure": structure,
-        "cuves": cuves,
-        "resume_carburants": resume_carburants,
+        "onglet_actif": "pompes",
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_station_detail.html", contexte)
@@ -2091,6 +2064,7 @@ def admin_station_historique(request, station_id):
         "pompiste_filtre_id": pompiste_filtre_id,
         "annee_filtre": annee_filtre,
         "mois_filtre": mois_filtre,
+        "onglet_actif": "historique",
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_station_historique.html", contexte)
@@ -2135,6 +2109,7 @@ def admin_station_depenses(request, station_id):
         "annees_disponibles": annees_disponibles,
         "annee_filtre": annee_filtre,
         "mois_filtre": mois_filtre,
+        "onglet_actif": "depenses",
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_station_depenses.html", contexte)
@@ -2176,6 +2151,7 @@ def admin_station_jauges(request, station_id):
         "annees_disponibles": annees_disponibles,
         "annee_filtre": annee_filtre,
         "mois_filtre": mois_filtre,
+        "onglet_actif": "jauges",
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_station_jauges.html", contexte)
@@ -2335,3 +2311,46 @@ def admin_cuve_gerer(request, cuve_id):
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_cuve_gerer.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_station_cuves(request, station_id):
+    """Onglet dedie Cuves de la fiche station (deplace hors de admin_station_detail
+    pour desencombrer l ecran Pompes — chantier navigation par onglets). Meme logique
+    de resume agrege par carburant deja etablie."""
+    from django.db.models import Sum
+    from django.shortcuts import get_object_or_404
+
+    from cuves.models import Cuve, Jauge
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+    station = get_object_or_404(Station, pk=station_id)
+
+    cuves = Cuve.objects.filter(station=station).order_by("carburant")
+    resume_carburants = []
+    for carburant, libelle in Cuve._meta.get_field("carburant").choices:
+        cuves_carburant = cuves.filter(carburant=carburant)
+        if not cuves_carburant.exists():
+            continue
+        derniere_jauge = Jauge.objects.filter(
+            station=station, carburant=carburant
+        ).order_by("-date_mesure").first()
+        resume_carburants.append({
+            "carburant": libelle,
+            "nb_cuves": cuves_carburant.count(),
+            "capacite_totale": cuves_carburant.filter(actif=True).aggregate(total=Sum("capacite"))["total"] or 0,
+            "derniere_jauge": derniere_jauge,
+        })
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "station": station,
+        "cuves": cuves,
+        "resume_carburants": resume_carburants,
+        "onglet_actif": "cuves",
+        "vue_active": "stations",
+    }
+    return render(request, "accounts/admin_station_cuves.html", contexte)

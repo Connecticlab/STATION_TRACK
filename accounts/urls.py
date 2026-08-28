@@ -30,6 +30,7 @@ urlpatterns = [
     path("admin/stations/<int:station_id>/historique/", views.admin_station_historique, name="admin_station_historique"),
     path("admin/stations/<int:station_id>/depenses/", views.admin_station_depenses, name="admin_station_depenses"),
     path("admin/stations/<int:station_id>/jauges/", views.admin_station_jauges, name="admin_station_jauges"),
+    path("admin/stations/<int:station_id>/cuves/", views.admin_station_cuves, name="admin_station_cuves"),
     path("admin/stations/<int:station_id>/cuves/creer/", views.admin_cuve_creer, name="admin_cuve_creer"),
     path("admin/cuves/<int:cuve_id>/gerer/", views.admin_cuve_gerer, name="admin_cuve_gerer"),
     path("admin/pompes/<int:pompe_id>/gerer/", views.admin_pompe_gerer, name="admin_pompe_gerer"),
