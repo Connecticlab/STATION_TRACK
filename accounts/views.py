@@ -2501,3 +2501,88 @@ def admin_stocks(request):
         "vue_active": "stocks",
     }
     return render(request, "accounts/admin_stocks.html", contexte)
+
+
+@require_employee_login(roles=[Employee.GERANT, Employee.CHEF_DE_PISTE])
+def gerant_depotage(request):
+    """Enregistrement d un depotage (ravitaillement par camion-citerne). Le formulaire
+    n affiche QUE les carburants ayant au moins une Cuve ACTIVE — jamais de depotage
+    dans un carburant sans cuve utilisable. jauge_completee est fixee a la creation
+    (derniere Jauge du carburant AVANT ce depotage, jamais recalculee dynamiquement,
+    cf. docstring du modele Depotage). Le stock (Jauge) est mis a jour par addition,
+    meme logique que l ajout de stock lors de la creation d une cuve (chantier Cuves
+    etape 4/5) — jamais une jauge concurrente independante."""
+    from decimal import Decimal, InvalidOperation
+
+    from django.db.models import Sum
+    from django.utils import timezone
+
+    from cuves.models import Cuve, Depotage, Jauge
+
+    employee = request.employee
+    station = employee.station
+
+    carburants_actifs = list(
+        Cuve.objects.filter(station=station, actif=True).values_list("carburant", flat=True).distinct()
+    )
+    carburants_choix = [c for c in Cuve._meta.get_field("carburant").choices if c[0] in carburants_actifs]
+
+    erreurs = []
+    succes = False
+
+    if request.method == "POST":
+        carburant = request.POST.get("carburant", "").strip()
+        quantite_brute = request.POST.get("quantite_citerne", "").strip()
+
+        if carburant not in carburants_actifs:
+            erreurs.append("Carburant invalide ou sans cuve active.")
+
+        quantite_citerne = None
+        if not quantite_brute:
+            erreurs.append("La quantité dépotée est obligatoire.")
+        else:
+            try:
+                quantite_citerne = Decimal(quantite_brute)
+                if quantite_citerne <= 0:
+                    erreurs.append("La quantité dépotée doit être supérieure à zéro.")
+            except InvalidOperation:
+                erreurs.append("Quantité invalide.")
+
+        if not erreurs:
+            maintenant = timezone.now()
+            aujourdhui = timezone.localtime(maintenant).date()
+
+            derniere_jauge = Jauge.objects.filter(
+                station=station, carburant=carburant
+            ).order_by("-date_mesure").first()
+            stock_actuel = derniere_jauge.quantite if derniere_jauge else 0
+            stock_apres_depotage = stock_actuel + quantite_citerne
+
+            capacite_active = Cuve.objects.filter(
+                station=station, carburant=carburant, actif=True
+            ).aggregate(total=Sum("capacite"))["total"] or 0
+
+            if stock_apres_depotage > capacite_active:
+                erreurs.append(
+                    f"Impossible : le stock après dépotage ({stock_apres_depotage} L) dépasserait "
+                    f"la capacité active totale des cuves ({capacite_active} L)."
+                )
+
+        if not erreurs:
+            Depotage.objects.create(
+                station=station, carburant=carburant, quantite_citerne=quantite_citerne,
+                date_heure=maintenant, jauge_completee=derniere_jauge,
+            )
+            Jauge.objects.update_or_create(
+                station=station, carburant=carburant, date_jauge=aujourdhui,
+                defaults={"quantite": stock_apres_depotage, "date_mesure": maintenant},
+            )
+            succes = True
+
+    contexte = {
+        "employee": employee,
+        "carburants_choix": carburants_choix,
+        "erreurs": erreurs,
+        "succes": succes,
+    }
+    return render(request, "accounts/gerant_depotage.html", contexte)
