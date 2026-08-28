@@ -1,0 +1,51 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — Carburants & Prix{% endblock %}
+
+{% block extra_style %}
+table th,table td{text-align:center;}
+table th:first-child,table td:first-child{text-align:left;}
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Carburants & Prix</h1>
+      <p>Prix actuel du Gasoil et de l'Essence pour chaque station</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Station</th>
+          <th>Gasoil</th>
+          <th>Essence</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ligne in lignes %}
+        <tr>
+          <td>{{ ligne.station.nom }}</td>
+          <td style="font-weight:700;">
+            {% if ligne.prix_gasoil %}{{ ligne.prix_gasoil.prix_au_litre|fcfa }}/L
+              <div style="font-weight:400;color:var(--muted);font-size:11px;">depuis le {{ ligne.prix_gasoil.date_debut|date:"d/m/Y" }}</div>
+            {% else %}<span style="color:var(--st-red-text);font-weight:400;">Non configuré</span>{% endif %}
+          </td>
+          <td style="font-weight:700;">
+            {% if ligne.prix_essence %}{{ ligne.prix_essence.prix_au_litre|fcfa }}/L
+              <div style="font-weight:400;color:var(--muted);font-size:11px;">depuis le {{ ligne.prix_essence.date_debut|date:"d/m/Y" }}</div>
+            {% else %}<span style="color:var(--st-red-text);font-weight:400;">Non configuré</span>{% endif %}
+          </td>
+          <td><a href="{% url 'accounts:admin_prix_modifier' ligne.station.pk %}" class="action" style="max-width:100px;padding:6px 12px;font-size:10.5px;border-color:var(--blue);color:var(--blue);">Modifier</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" style="color:var(--muted);">Aucune station enregistrée.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

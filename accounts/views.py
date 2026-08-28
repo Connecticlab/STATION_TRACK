@@ -2359,3 +2359,100 @@ def admin_station_cuves(request, station_id):
         "vue_active": "stations",
     }
     return render(request, "accounts/admin_station_cuves.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_carburants_prix(request):
+    """Vue transversale : prix actuel (Gasoil/Essence) de TOUTES les stations de la
+    societe, en un coup d oeil — jamais besoin d ouvrir chaque station separement pour
+    verifier ou mettre a jour un prix. Cohere avec la proposition de valeur du produit
+    (vue consolidee sur toutes les stations)."""
+    from stations.constants import ESSENCE, GASOIL
+    from stations.models import PrixCarburant, Station
+
+    employee = request.employee
+    societe = request.societe
+
+    stations = Station.objects.all().order_by("nom")
+    lignes = []
+    for station in stations:
+        lignes.append({
+            "station": station,
+            "prix_gasoil": PrixCarburant.objects.filter(station=station, carburant=GASOIL).order_by("-date_debut").first(),
+            "prix_essence": PrixCarburant.objects.filter(station=station, carburant=ESSENCE).order_by("-date_debut").first(),
+        })
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "lignes": lignes,
+        "vue_active": "carburants_prix",
+    }
+    return render(request, "accounts/admin_carburants_prix.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_prix_modifier(request, station_id):
+    """Enregistre un NOUVEAU prix (Gasoil et/ou Essence) pour une station — PrixCarburant
+    est historise (jamais de mise a jour destructive de l ancien prix), une nouvelle
+    ligne datee d aujourd hui devient la plus recente et donc la reference en vigueur."""
+    from decimal import Decimal, InvalidOperation
+
+    from django.shortcuts import get_object_or_404
+    from django.urls import reverse
+    from django.utils import timezone
+
+    from stations.constants import ESSENCE, GASOIL
+    from stations.models import PrixCarburant, Station
+
+    employee = request.employee
+    societe = request.societe
+    station = get_object_or_404(Station, pk=station_id)
+
+    prix_gasoil_actuel = PrixCarburant.objects.filter(station=station, carburant=GASOIL).order_by("-date_debut").first()
+    prix_essence_actuel = PrixCarburant.objects.filter(station=station, carburant=ESSENCE).order_by("-date_debut").first()
+
+    erreurs = []
+
+    if request.method == "POST":
+        prix_gasoil_brut = request.POST.get("prix_gasoil", "").strip()
+        prix_essence_brut = request.POST.get("prix_essence", "").strip()
+
+        prix_gasoil = None
+        if not prix_gasoil_brut:
+            erreurs.append("Le prix du Gasoil est obligatoire.")
+        else:
+            try:
+                prix_gasoil = Decimal(prix_gasoil_brut)
+                if prix_gasoil <= 0:
+                    erreurs.append("Le prix du Gasoil doit être supérieur à zéro.")
+            except InvalidOperation:
+                erreurs.append("Prix du Gasoil invalide.")
+
+        prix_essence = None
+        if not prix_essence_brut:
+            erreurs.append("Le prix de l'Essence est obligatoire.")
+        else:
+            try:
+                prix_essence = Decimal(prix_essence_brut)
+                if prix_essence <= 0:
+                    erreurs.append("Le prix de l'Essence doit être supérieur à zéro.")
+            except InvalidOperation:
+                erreurs.append("Prix de l'Essence invalide.")
+
+        if not erreurs:
+            maintenant = timezone.now()
+            PrixCarburant.objects.create(station=station, carburant=GASOIL, prix_au_litre=prix_gasoil, date_debut=maintenant)
+            PrixCarburant.objects.create(station=station, carburant=ESSENCE, prix_au_litre=prix_essence, date_debut=maintenant)
+            return redirect(reverse("accounts:admin_carburants_prix"))
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "station": station,
+        "prix_gasoil_actuel": prix_gasoil_actuel,
+        "prix_essence_actuel": prix_essence_actuel,
+        "erreurs": erreurs,
+        "vue_active": "carburants_prix",
+    }
+    return render(request, "accounts/admin_prix_modifier.html", contexte)
