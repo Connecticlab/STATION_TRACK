@@ -25,6 +25,7 @@ table th:first-child,table td:first-child{text-align:left;}
 
   <div id="station-content">
   <form method="get" class="filter-bar">
+    <input type="hidden" name="depuis_onglet" value="1">
     <select name="mois" onchange="this.form.submit()">
       <option value="">Tous les mois</option>
       <option value="1" {% if mois_filtre == "1" %}selected{% endif %}>Janvier</option>
@@ -47,7 +48,7 @@ table th:first-child,table td:first-child{text-align:left;}
       {% endfor %}
     </select>
     {% if annee_filtre or mois_filtre %}
-      <a href="{% url 'accounts:admin_station_depenses' station.pk %}" class="action" style="padding:9px 16px;font-size:12px;max-width:150px;border-color:var(--line);color:var(--text);">Réinitialiser</a>
+      <a href="{% url 'accounts:admin_station_depenses' station.pk %}?depuis_onglet=1" class="action" style="padding:9px 16px;font-size:12px;max-width:150px;border-color:var(--line);color:var(--text);">Réinitialiser</a>
     {% endif %}
   </form>
 

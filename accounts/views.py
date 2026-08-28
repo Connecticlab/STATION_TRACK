@@ -1337,6 +1337,7 @@ def admin_station_creer(request):
     Gerant reste vide/inutilisable (filtre deja sur les carburants ayant une Cuve)."""
     from decimal import Decimal, InvalidOperation
 
+    from django.urls import reverse
     from django.utils import timezone
 
     from cuves.models import Cuve, Jauge
@@ -1452,7 +1453,7 @@ def admin_station_creer(request):
                 station=station, carburant=ESSENCE, quantite=stock_essence,
                 date_jauge=aujourdhui, date_mesure=maintenant,
             )
-            return redirect("accounts:admin_station_detail", station_id=station.pk)
+            return redirect(reverse("accounts:admin_station_detail", kwargs={"station_id": station.pk}) + "?depuis_onglet=1")
 
     contexte = {
         "employee": employee,
@@ -1598,6 +1599,7 @@ def admin_pompe_creer(request, station_id):
     unique_together ; le numero des pistolets est auto-calcule par leur propre save()
     (sequence par carburant, deja etablie ailleurs dans le projet)."""
     from django.shortcuts import get_object_or_404
+    from django.urls import reverse
 
     from stations.constants import ESSENCE, GASOIL
     from stations.models import Face, Pistolet, Pompe, Station
@@ -1636,7 +1638,7 @@ def admin_pompe_creer(request, station_id):
                 if face2_essence:
                     Pistolet.objects.create(face=face2, carburant=ESSENCE, actif=True)
 
-            return redirect("accounts:admin_station_detail", station_id=station.pk)
+            return redirect(reverse("accounts:admin_station_detail", kwargs={"station_id": station.pk}) + "?depuis_onglet=1")
 
     contexte = {
         "employee": employee,
@@ -1730,6 +1732,7 @@ def admin_pompe_supprimer(request, pompe_id):
     """Suppression definitive d'une pompe — reservee aux cas ou AUCUN releve n'existe
     sur aucun de ses pistolets (verification exhaustive). Meme flux en deux etapes."""
     from django.shortcuts import get_object_or_404
+    from django.urls import reverse
 
     from stations.models import Pompe
 
@@ -1743,7 +1746,7 @@ def admin_pompe_supprimer(request, pompe_id):
         if request.POST.get("confirmer") == "oui":
             station_id = cible.station_id
             cible.delete()
-            return redirect("accounts:admin_station_detail", station_id=station_id)
+            return redirect(reverse("accounts:admin_station_detail", kwargs={"station_id": station_id}) + "?depuis_onglet=1")
 
     contexte = {
         "employee": employee,
@@ -2165,6 +2168,7 @@ def admin_cuve_creer(request, station_id):
     from decimal import Decimal, InvalidOperation
 
     from django.shortcuts import get_object_or_404
+    from django.urls import reverse
     from django.utils import timezone
 
     from cuves.models import Cuve, Jauge
@@ -2229,7 +2233,7 @@ def admin_cuve_creer(request, station_id):
                 station=station, carburant=carburant, date_jauge=aujourdhui,
                 defaults={"quantite": stock_total, "date_mesure": maintenant},
             )
-            return redirect("accounts:admin_station_detail", station_id=station.pk)
+            return redirect(reverse("accounts:admin_station_cuves", kwargs={"station_id": station.pk}) + "?depuis_onglet=1")
 
     contexte = {
         "employee": employee,
@@ -2252,6 +2256,7 @@ def admin_cuve_gerer(request, cuve_id):
 
     from django.db.models import Sum
     from django.shortcuts import get_object_or_404
+    from django.urls import reverse
 
     from cuves.models import Cuve, Jauge
 
@@ -2299,7 +2304,7 @@ def admin_cuve_gerer(request, cuve_id):
             cuve.capacite = capacite
             cuve.actif = nouveau_actif
             cuve.save()
-            return redirect("accounts:admin_station_detail", station_id=station.pk)
+            return redirect(reverse("accounts:admin_station_cuves", kwargs={"station_id": station.pk}) + "?depuis_onglet=1")
 
     contexte = {
         "employee": employee,

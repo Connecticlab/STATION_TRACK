@@ -26,6 +26,7 @@ table th:first-child,table td:first-child{text-align:left;}
 
   <div id="station-content">
   <form method="get" class="filter-bar">
+    <input type="hidden" name="depuis_onglet" value="1">
     <select name="pompiste" onchange="this.form.submit()">
       <option value="">Tous les pompistes</option>
       {% for pompiste in pompistes_historique %}
@@ -54,7 +55,7 @@ table th:first-child,table td:first-child{text-align:left;}
       {% endfor %}
     </select>
     {% if pompiste_filtre_id or annee_filtre or mois_filtre %}
-      <a href="{% url 'accounts:admin_station_historique' station.pk %}" class="action" style="padding:9px 16px;font-size:12px;max-width:150px;border-color:var(--line);color:var(--text);">Réinitialiser</a>
+      <a href="{% url 'accounts:admin_station_historique' station.pk %}?depuis_onglet=1" class="action" style="padding:9px 16px;font-size:12px;max-width:150px;border-color:var(--line);color:var(--text);">Réinitialiser</a>
     {% endif %}
   </form>
 
