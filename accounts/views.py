@@ -2456,3 +2456,48 @@ def admin_prix_modifier(request, station_id):
         "vue_active": "carburants_prix",
     }
     return render(request, "accounts/admin_prix_modifier.html", contexte)
+
+
+@require_employee_login(roles=[Employee.ADMIN_SIEGE])
+def admin_stocks(request):
+    """Vue transversale : stock actuel (Gasoil/Essence) de TOUTES les stations de la
+    societe, avec pourcentage de remplissage et mise en evidence des stations en
+    stock faible — repere rapide, en complement du detail par cuve deja disponible
+    dans l onglet Cuves de chaque station."""
+    from django.db.models import Sum
+
+    from cuves.models import Cuve, Jauge
+    from stations.constants import CARBURANT_CHOICES
+    from stations.models import Station
+
+    employee = request.employee
+    societe = request.societe
+
+    stations = Station.objects.all().order_by("nom")
+    lignes = []
+    for station in stations:
+        ligne = {"station": station}
+        cuves_actives = Cuve.objects.filter(station=station, actif=True)
+        for carburant, libelle in CARBURANT_CHOICES:
+            capacite = cuves_actives.filter(carburant=carburant).aggregate(total=Sum("capacite"))["total"] or 0
+            derniere_jauge = Jauge.objects.filter(
+                station=station, carburant=carburant
+            ).order_by("-date_mesure").first()
+            stock = derniere_jauge.quantite if derniere_jauge else None
+            pourcentage = round((stock / capacite) * 100) if (capacite > 0 and stock is not None) else None
+            ligne[carburant] = {
+                "libelle": libelle,
+                "stock": stock,
+                "capacite": capacite,
+                "pourcentage": pourcentage,
+                "date_mesure": derniere_jauge.date_jauge if derniere_jauge else None,
+            }
+        lignes.append(ligne)
+
+    contexte = {
+        "employee": employee,
+        "societe": societe,
+        "lignes": lignes,
+        "vue_active": "stocks",
+    }
+    return render(request, "accounts/admin_stocks.html", contexte)

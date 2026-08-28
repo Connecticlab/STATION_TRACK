@@ -1,0 +1,86 @@
+{% extends "accounts/admin_base.html" %}
+{% load formatage %}
+
+{% block title %}StationTrack — Stocks{% endblock %}
+
+{% block extra_style %}
+table th,table td{text-align:center;}
+table th:first-child,table td:first-child{text-align:left;}
+.stock-cell{min-width:200px;}
+.stock-wrap{display:flex;align-items:center;gap:14px;justify-content:center;}
+.tank{
+  position:relative;width:52px;height:64px;flex-shrink:0;
+  border:2px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel2);
+}
+.tank-fill{position:absolute;bottom:0;left:0;width:100%;transition:height .3s;}
+.tank-fill.ok{background:var(--st-green-text);}
+.tank-fill.moyen{background:var(--st-orange-text);}
+.tank-fill.faible{background:var(--st-red-text);}
+.tank-label{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:12px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);
+}
+.stock-details{text-align:left;}
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Stocks</h1>
+      <p>Stock actuel du Gasoil et de l'Essence pour chaque station</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Station</th>
+          <th>Gasoil</th>
+          <th>Essence</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ligne in lignes %}
+        <tr>
+          <td>{{ ligne.station.nom }}</td>
+          <td class="stock-cell">
+            {% if ligne.gasoil.pourcentage is not None %}
+              <div class="stock-wrap">
+                <div class="tank">
+                  <div class="tank-fill {% if ligne.gasoil.pourcentage < 20 %}faible{% elif ligne.gasoil.pourcentage < 40 %}moyen{% else %}ok{% endif %}" style="height:{{ ligne.gasoil.pourcentage }}%;"></div>
+                  <div class="tank-label">{{ ligne.gasoil.pourcentage }}%</div>
+                </div>
+                <div class="stock-details">
+                  <div style="font-weight:700;">{{ ligne.gasoil.stock }} / {{ ligne.gasoil.capacite }} L</div>
+                  <div style="font-size:10.5px;color:var(--muted);">jauge du {{ ligne.gasoil.date_mesure|date:"d/m/Y" }}</div>
+                </div>
+              </div>
+            {% else %}
+              <span style="color:var(--st-red-text);font-weight:400;">Non configuré</span>
+            {% endif %}
+          </td>
+          <td class="stock-cell">
+            {% if ligne.essence.pourcentage is not None %}
+              <div class="stock-wrap">
+                <div class="tank">
+                  <div class="tank-fill {% if ligne.essence.pourcentage < 20 %}faible{% elif ligne.essence.pourcentage < 40 %}moyen{% else %}ok{% endif %}" style="height:{{ ligne.essence.pourcentage }}%;"></div>
+                  <div class="tank-label">{{ ligne.essence.pourcentage }}%</div>
+                </div>
+                <div class="stock-details">
+                  <div style="font-weight:700;">{{ ligne.essence.stock }} / {{ ligne.essence.capacite }} L</div>
+                  <div style="font-size:10.5px;color:var(--muted);">jauge du {{ ligne.essence.date_mesure|date:"d/m/Y" }}</div>
+                </div>
+              </div>
+            {% else %}
+              <span style="color:var(--st-red-text);font-weight:400;">Non configuré</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="3" style="color:var(--muted);">Aucune station enregistrée.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

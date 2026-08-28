@@ -22,6 +22,7 @@ urlpatterns = [
     path("admin/", views.admin_accueil, name="admin_accueil"),
     path("admin/carburants-prix/", views.admin_carburants_prix, name="admin_carburants_prix"),
     path("admin/carburants-prix/<int:station_id>/modifier/", views.admin_prix_modifier, name="admin_prix_modifier"),
+    path("admin/stocks/", views.admin_stocks, name="admin_stocks"),
     path("admin/stations/", views.admin_stations, name="admin_stations"),
     path("admin/stations/creer/", views.admin_station_creer, name="admin_station_creer"),
     path("admin/stations/<int:station_id>/", views.admin_station_detail, name="admin_station_detail"),
