@@ -7,6 +7,18 @@
 table.no-lines th, table.no-lines td{text-align:center;}
 table.no-lines th:first-child, table.no-lines td:first-child{text-align:left;}
 table.no-lines th:last-child, table.no-lines td:last-child{border-left:none;border-bottom:none;}
+.tank{
+  position:relative;width:44px;height:54px;flex-shrink:0;margin:0 auto;
+  border:2px solid var(--line);border-radius:9px;overflow:hidden;background:var(--panel2);
+}
+.tank-fill{position:absolute;bottom:0;left:0;width:100%;transition:height .3s;}
+.tank-fill.ok{background:var(--st-green-text);}
+.tank-fill.moyen{background:var(--st-orange-text);}
+.tank-fill.faible{background:var(--st-red-text);}
+.tank-label{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:10.5px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);
+}
 {% endblock %}
 
 {% block content %}
@@ -31,7 +43,9 @@ table.no-lines th:last-child, table.no-lines td:last-child{border-left:none;bord
           <th>Carburant</th>
           <th>Nb cuves</th>
           <th>Capacité totale</th>
-          <th>Stock actuel</th>
+          <th>Dernière mesure</th>
+          <th>Stock estimé aujourd'hui</th>
+          <th>Remplissage estimé</th>
         </tr>
       </thead>
       <tbody>
@@ -45,9 +59,21 @@ table.no-lines th:last-child, table.no-lines td:last-child{border-left:none;bord
               <span style="font-weight:400;color:var(--muted);font-size:11px;">({{ resume.derniere_jauge.date_jauge|date:"d/m/Y" }})</span>
             {% else %}<span style="color:var(--muted);font-weight:400;">Aucune jauge</span>{% endif %}
           </td>
+          <td style="font-weight:700;">
+            {% if resume.stock_theorique is not None %}≈ {{ resume.stock_theorique|floatformat:0 }} L
+            {% else %}<span style="color:var(--muted);font-weight:400;">—</span>{% endif %}
+          </td>
+          <td>
+            {% if resume.pourcentage is not None %}
+              <div class="tank">
+                <div class="tank-fill {% if resume.pourcentage < 20 %}faible{% elif resume.pourcentage < 40 %}moyen{% else %}ok{% endif %}" style="height:{{ resume.pourcentage_affiche }}%;"></div>
+                <div class="tank-label">{{ resume.pourcentage }}%</div>
+              </div>
+            {% else %}<span style="color:var(--muted);font-weight:400;">—</span>{% endif %}
+          </td>
         </tr>
         {% empty %}
-        <tr><td colspan="4" style="color:var(--muted);text-align:left;">Aucune cuve enregistrée pour cette station.</td></tr>
+        <tr><td colspan="6" style="color:var(--muted);text-align:left;">Aucune cuve enregistrée pour cette station.</td></tr>
         {% endfor %}
       </tbody>
     </table>

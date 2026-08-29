@@ -48,12 +48,12 @@ table th:first-child,table td:first-child{text-align:left;}
             {% if ligne.gasoil.pourcentage is not None %}
               <div class="stock-wrap">
                 <div class="tank">
-                  <div class="tank-fill {% if ligne.gasoil.pourcentage < 20 %}faible{% elif ligne.gasoil.pourcentage < 40 %}moyen{% else %}ok{% endif %}" style="height:{{ ligne.gasoil.pourcentage }}%;"></div>
+                  <div class="tank-fill {% if ligne.gasoil.pourcentage < 20 %}faible{% elif ligne.gasoil.pourcentage < 40 %}moyen{% else %}ok{% endif %}" style="height:{{ ligne.gasoil.pourcentage_affiche }}%;"></div>
                   <div class="tank-label">{{ ligne.gasoil.pourcentage }}%</div>
                 </div>
                 <div class="stock-details">
-                  <div style="font-weight:700;">{{ ligne.gasoil.stock }} / {{ ligne.gasoil.capacite }} L</div>
-                  <div style="font-size:10.5px;color:var(--muted);">jauge du {{ ligne.gasoil.date_mesure|date:"d/m/Y" }}</div>
+                  <div style="font-weight:700;">≈ {{ ligne.gasoil.stock_theorique|floatformat:0 }} / {{ ligne.gasoil.capacite }} L</div>
+                  <div style="font-size:10.5px;color:var(--muted);">mesuré : {{ ligne.gasoil.stock_mesure|floatformat:0 }} L (jauge du {{ ligne.gasoil.date_mesure|date:"d/m/Y" }})</div>
                 </div>
               </div>
             {% else %}
@@ -64,12 +64,12 @@ table th:first-child,table td:first-child{text-align:left;}
             {% if ligne.essence.pourcentage is not None %}
               <div class="stock-wrap">
                 <div class="tank">
-                  <div class="tank-fill {% if ligne.essence.pourcentage < 20 %}faible{% elif ligne.essence.pourcentage < 40 %}moyen{% else %}ok{% endif %}" style="height:{{ ligne.essence.pourcentage }}%;"></div>
+                  <div class="tank-fill {% if ligne.essence.pourcentage < 20 %}faible{% elif ligne.essence.pourcentage < 40 %}moyen{% else %}ok{% endif %}" style="height:{{ ligne.essence.pourcentage_affiche }}%;"></div>
                   <div class="tank-label">{{ ligne.essence.pourcentage }}%</div>
                 </div>
                 <div class="stock-details">
-                  <div style="font-weight:700;">{{ ligne.essence.stock }} / {{ ligne.essence.capacite }} L</div>
-                  <div style="font-size:10.5px;color:var(--muted);">jauge du {{ ligne.essence.date_mesure|date:"d/m/Y" }}</div>
+                  <div style="font-weight:700;">≈ {{ ligne.essence.stock_theorique|floatformat:0 }} / {{ ligne.essence.capacite }} L</div>
+                  <div style="font-size:10.5px;color:var(--muted);">mesuré : {{ ligne.essence.stock_mesure|floatformat:0 }} L (jauge du {{ ligne.essence.date_mesure|date:"d/m/Y" }})</div>
                 </div>
               </div>
             {% else %}

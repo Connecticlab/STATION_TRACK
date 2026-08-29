@@ -4,6 +4,49 @@ from stations.models import Pistolet
 from stations.services import litres_vendus_par_carburant
 
 
+def calculer_stock_theorique(station, carburant):
+    """Estime le stock actuel (Gasoil/Essence) d'une station entre deux jauges physiques :
+    derniere jauge + depotages survenus depuis cette jauge (lien explicite jauge_completee,
+    meme principe que calculer_ecart_jauge, jamais une recherche par intervalle de dates)
+    - litres vendus depuis cette jauge (releve Gerant qui fait foi, meme fonction que
+    partout ailleurs dans le projet). Fonction pure : ne sauvegarde rien.
+
+    Retourne None si aucune jauge n'existe encore pour ce carburant/cette station —
+    impossible d'estimer un stock sans un point de depart physique connu."""
+    from django.utils import timezone
+
+    from cuves.models import Jauge
+
+    derniere_jauge = Jauge.objects.filter(
+        station=station, carburant=carburant
+    ).order_by("-date_mesure").first()
+    if derniere_jauge is None:
+        return None
+
+    depotages_depuis = Depotage.objects.filter(jauge_completee=derniere_jauge, carburant=carburant)
+    total_depotage = sum(d.quantite_citerne for d in depotages_depuis) or 0
+
+    pistolets_ids = list(
+        Pistolet.objects.filter(
+            face__pompe__station=station, carburant=carburant
+        ).values_list("id", flat=True)
+    )
+    litres_vendus = litres_vendus_par_carburant(
+        pistolets_ids, ReleveIndexGerant.objects.all(),
+        derniere_jauge.date_mesure, timezone.now(),
+    )
+    quantite_vendue = litres_vendus.get(carburant, 0)
+
+    stock_theorique = derniere_jauge.quantite + total_depotage - quantite_vendue
+
+    return {
+        "derniere_jauge": derniere_jauge,
+        "total_depotage": total_depotage,
+        "quantite_vendue": quantite_vendue,
+        "stock_theorique": stock_theorique,
+    }
+
+
 def calculer_ecart_jauge(jauge_debut, jauge_fin):
     """Calcule l'écart carburant entre deux jauges consécutives (même carburant, même station) :
     quantité consommée selon les cuves (corrigée des dépotages intermédiaires) vs quantité vendue

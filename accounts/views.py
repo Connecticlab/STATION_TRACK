@@ -2326,7 +2326,8 @@ def admin_station_cuves(request, station_id):
     from django.db.models import Sum
     from django.shortcuts import get_object_or_404
 
-    from cuves.models import Cuve, Jauge
+    from cuves.models import Cuve
+    from cuves.services import calculer_stock_theorique
     from stations.models import Station
 
     employee = request.employee
@@ -2339,14 +2340,24 @@ def admin_station_cuves(request, station_id):
         cuves_carburant = cuves.filter(carburant=carburant)
         if not cuves_carburant.exists():
             continue
-        derniere_jauge = Jauge.objects.filter(
-            station=station, carburant=carburant
-        ).order_by("-date_mesure").first()
+        resultat_theorique = calculer_stock_theorique(station, carburant)
+        derniere_jauge = resultat_theorique["derniere_jauge"] if resultat_theorique else None
+        stock_theorique = resultat_theorique["stock_theorique"] if resultat_theorique else None
+        capacite_totale = cuves_carburant.filter(actif=True).aggregate(total=Sum("capacite"))["total"] or 0
+        if capacite_totale > 0 and stock_theorique is not None:
+            pourcentage = round((stock_theorique / capacite_totale) * 100)
+            pourcentage_affiche = max(0, min(100, pourcentage))
+        else:
+            pourcentage = None
+            pourcentage_affiche = None
         resume_carburants.append({
             "carburant": libelle,
             "nb_cuves": cuves_carburant.count(),
-            "capacite_totale": cuves_carburant.filter(actif=True).aggregate(total=Sum("capacite"))["total"] or 0,
+            "capacite_totale": capacite_totale,
             "derniere_jauge": derniere_jauge,
+            "stock_theorique": stock_theorique,
+            "pourcentage": pourcentage,
+            "pourcentage_affiche": pourcentage_affiche,
         })
 
     contexte = {
@@ -2466,7 +2477,8 @@ def admin_stocks(request):
     dans l onglet Cuves de chaque station."""
     from django.db.models import Sum
 
-    from cuves.models import Cuve, Jauge
+    from cuves.models import Cuve
+    from cuves.services import calculer_stock_theorique
     from stations.constants import CARBURANT_CHOICES
     from stations.models import Station
 
@@ -2480,16 +2492,28 @@ def admin_stocks(request):
         cuves_actives = Cuve.objects.filter(station=station, actif=True)
         for carburant, libelle in CARBURANT_CHOICES:
             capacite = cuves_actives.filter(carburant=carburant).aggregate(total=Sum("capacite"))["total"] or 0
-            derniere_jauge = Jauge.objects.filter(
-                station=station, carburant=carburant
-            ).order_by("-date_mesure").first()
-            stock = derniere_jauge.quantite if derniere_jauge else None
-            pourcentage = round((stock / capacite) * 100) if (capacite > 0 and stock is not None) else None
+            resultat = calculer_stock_theorique(station, carburant)
+            if resultat is None:
+                stock_theorique = None
+                stock_mesure = None
+                derniere_jauge = None
+            else:
+                stock_theorique = resultat["stock_theorique"]
+                derniere_jauge = resultat["derniere_jauge"]
+                stock_mesure = derniere_jauge.quantite
+            if capacite > 0 and stock_theorique is not None:
+                pourcentage = round((stock_theorique / capacite) * 100)
+                pourcentage_affiche = max(0, min(100, pourcentage))
+            else:
+                pourcentage = None
+                pourcentage_affiche = None
             ligne[carburant] = {
                 "libelle": libelle,
-                "stock": stock,
+                "stock_theorique": stock_theorique,
+                "stock_mesure": stock_mesure,
                 "capacite": capacite,
                 "pourcentage": pourcentage,
+                "pourcentage_affiche": pourcentage_affiche,
                 "date_mesure": derniere_jauge.date_jauge if derniere_jauge else None,
             }
         lignes.append(ligne)
@@ -2508,10 +2532,19 @@ def gerant_depotage(request):
     """Enregistrement d un depotage (ravitaillement par camion-citerne). Le formulaire
     n affiche QUE les carburants ayant au moins une Cuve ACTIVE — jamais de depotage
     dans un carburant sans cuve utilisable. jauge_completee est fixee a la creation
-    (derniere Jauge du carburant AVANT ce depotage, jamais recalculee dynamiquement,
-    cf. docstring du modele Depotage). Le stock (Jauge) est mis a jour par addition,
-    meme logique que l ajout de stock lors de la creation d une cuve (chantier Cuves
-    etape 4/5) — jamais une jauge concurrente independante."""
+    (derniere Jauge du carburant AVANT ce depotage), lien EXPLICITE reutilise ensuite
+    par calculer_stock_theorique et calculer_ecart_jauge — jamais une recherche par
+    intervalle de dates.
+
+    IMPORTANT : le depotage ne touche JAMAIS la table Jauge. Les lignes Jauge sont des
+    mesures physiques figees (meme principe que calculer_ecart_jauge, qui les traite
+    comme des instantanes immuables) — les modifier ici casserait ce contrat et
+    provoquerait un double comptage du depotage des qu une jauge du jour existe deja
+    (bug reellement rencontre et corrige : Jauge.update_or_create() sur la jauge du
+    jour finissait par pointer, via jauge_completee, vers une ligne qui contenait
+    DEJA le depotage, que calculer_stock_theorique rajoutait une seconde fois). Le
+    stock affiche ensuite (calculer_stock_theorique) est TOUJOURS calcule a la volee :
+    derniere jauge + depotages lies via jauge_completee - litres vendus depuis."""
     from decimal import Decimal, InvalidOperation
 
     from django.db.models import Sum
@@ -2550,7 +2583,6 @@ def gerant_depotage(request):
 
         if not erreurs:
             maintenant = timezone.now()
-            aujourdhui = timezone.localtime(maintenant).date()
 
             derniere_jauge = Jauge.objects.filter(
                 station=station, carburant=carburant
@@ -2572,10 +2604,6 @@ def gerant_depotage(request):
             Depotage.objects.create(
                 station=station, carburant=carburant, quantite_citerne=quantite_citerne,
                 date_heure=maintenant, jauge_completee=derniere_jauge,
-            )
-            Jauge.objects.update_or_create(
-                station=station, carburant=carburant, date_jauge=aujourdhui,
-                defaults={"quantite": stock_apres_depotage, "date_mesure": maintenant},
             )
             succes = True
 
