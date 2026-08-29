@@ -446,13 +446,35 @@ def pompiste_recu(request, session_id):
 
 @require_employee_login(roles=[Employee.POMPISTE])
 def pompiste_historique(request):
-    """Liste des sessions de caisse passees du pompiste, avec lien vers chaque recu."""
+    """Liste des sessions de caisse passees du pompiste, avec lien vers chaque recu.
+    Filtrable par mois/annee, meme pattern deja etabli (ex: admin_station_historique) —
+    annees_disponibles toujours calculee AVANT filtrage pour que le menu deroulant
+    reste complet."""
     from caisse.models import SessionCaisse
 
     employee = request.employee
-    sessions = SessionCaisse.objects.filter(employee=employee).order_by("-date")
+    sessions_brutes = SessionCaisse.objects.filter(employee=employee)
 
-    contexte = {"employee": employee, "sessions": sessions}
+    annees_disponibles = sorted(
+        set(sessions_brutes.values_list("date__year", flat=True)), reverse=True
+    )
+
+    annee_filtre = request.GET.get("annee", "").strip()
+    mois_filtre = request.GET.get("mois", "").strip()
+
+    sessions = sessions_brutes.order_by("-date")
+    if annee_filtre:
+        sessions = sessions.filter(date__year=annee_filtre)
+    if mois_filtre:
+        sessions = sessions.filter(date__month=mois_filtre)
+
+    contexte = {
+        "employee": employee,
+        "sessions": sessions,
+        "annees_disponibles": annees_disponibles,
+        "annee_filtre": annee_filtre,
+        "mois_filtre": mois_filtre,
+    }
     return render(request, "accounts/pompiste_historique.html", contexte)
 
 
@@ -461,15 +483,33 @@ def pompiste_historique_pv(request):
     """Historique des PV de caisse (documents officiels post-confrontation, produits
     par le Gerant) du pompiste connecte — distinct de pompiste_historique qui montre
     ses PROPRES saisies avant confrontation. Seules les sessions avec resultat deja
-    renseigne (donc deja confrontees) apparaissent ici, jamais une session en attente."""
+    renseigne (donc deja confrontees) apparaissent ici, jamais une session en attente.
+    Filtrable par mois/annee, meme pattern que pompiste_historique."""
     from caisse.models import SessionCaisse
 
     employee = request.employee
-    sessions = SessionCaisse.objects.filter(
-        employee=employee, resultat__isnull=False
-    ).order_by("-date")
+    sessions_brutes = SessionCaisse.objects.filter(employee=employee, resultat__isnull=False)
 
-    contexte = {"employee": employee, "sessions": sessions}
+    annees_disponibles = sorted(
+        set(sessions_brutes.values_list("date__year", flat=True)), reverse=True
+    )
+
+    annee_filtre = request.GET.get("annee", "").strip()
+    mois_filtre = request.GET.get("mois", "").strip()
+
+    sessions = sessions_brutes.order_by("-date")
+    if annee_filtre:
+        sessions = sessions.filter(date__year=annee_filtre)
+    if mois_filtre:
+        sessions = sessions.filter(date__month=mois_filtre)
+
+    contexte = {
+        "employee": employee,
+        "sessions": sessions,
+        "annees_disponibles": annees_disponibles,
+        "annee_filtre": annee_filtre,
+        "mois_filtre": mois_filtre,
+    }
     return render(request, "accounts/pompiste_historique_pv.html", contexte)
 
 
