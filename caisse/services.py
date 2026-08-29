@@ -251,3 +251,53 @@ def calculer_apercu_theorique(station, pistolets_ids, releves_queryset, date_deb
         "montant_theorique_total": montant_gasoil + montant_essence,
         "prix_manquants": prix_manquants,
     }
+
+
+def construire_detail_pistolets_pv(pompiste, session):
+    """Construit le detail par pistolet (Gerant vs Pompiste) d'une SessionCaisse pour
+    le PV de caisse — reutilise entre gerant_confronter (au moment de la confrontation),
+    pompiste_pv_detail (lecture seule) et l export PDF (jamais duplique 3 fois).
+    Fonction pure : ne sauvegarde rien, retourne la structure hierarchique
+    Pompe -> Face -> Pistolet, chaque pistolet enrichi des index Gerant et Pompiste +
+    litres vendus par les deux sources (comparaison cote a cote, jamais un total
+    agrege qui ne dit pas ou se situe une divergence)."""
+    from caisse.models import ReleveIndexGerant, ReleveIndexPompiste
+    from stations.services import pistolets_affectes_a, structurer_pistolets_par_pompe_face
+
+    releves_gerant = ReleveIndexGerant.objects.filter(
+        employee_pompiste=pompiste, date_heure__date=session.date
+    )
+    releves_pompiste = ReleveIndexPompiste.objects.filter(session_caisse=session)
+    pistolets = pistolets_affectes_a(pompiste)
+    structure = structurer_pistolets_par_pompe_face(pistolets)
+
+    for groupe_pompe in structure:
+        for groupe_face in groupe_pompe["faces"]:
+            for pistolet in groupe_face["pistolets"]:
+                releve_depart = releves_gerant.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexGerant.DEPART
+                ).first()
+                releve_fin = releves_gerant.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexGerant.FIN
+                ).first()
+                pistolet.index_depart = releve_depart.valeur_index if releve_depart else None
+                pistolet.index_fin = releve_fin.valeur_index if releve_fin else None
+                if releve_depart and releve_fin:
+                    pistolet.litres_vendus = releve_fin.valeur_index - releve_depart.valeur_index
+                else:
+                    pistolet.litres_vendus = None
+
+                releve_depart_pompiste = releves_pompiste.filter(
+                    pistolet=pistolet, type_releve="depart"
+                ).first()
+                releve_fin_pompiste = releves_pompiste.filter(
+                    pistolet=pistolet, type_releve="fin"
+                ).first()
+                pistolet.index_depart_pompiste = releve_depart_pompiste.valeur_index if releve_depart_pompiste else None
+                pistolet.index_fin_pompiste = releve_fin_pompiste.valeur_index if releve_fin_pompiste else None
+                if releve_depart_pompiste and releve_fin_pompiste:
+                    pistolet.litres_vendus_pompiste = releve_fin_pompiste.valeur_index - releve_depart_pompiste.valeur_index
+                else:
+                    pistolet.litres_vendus_pompiste = None
+
+    return structure

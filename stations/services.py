@@ -64,3 +64,38 @@ def pistolets_affectes_a(employee):
         Q(face__pompe__employee_affecte=employee) | Q(face__employee_affecte=employee),
         face__pompe__statut=Pompe.STATUT_ACTIF,
     ).distinct()
+
+
+def structurer_pistolets_par_pompe_face(pistolets_queryset):
+    """Organise un queryset de Pistolet en une structure hierarchique
+    [{"pompe": Pompe, "faces": [{"face": Face, "pistolets": [Pistolet, ...]}, ...]}, ...]
+    pour un affichage groupe (jamais une liste plate) — le pompiste doit toujours voir
+    de quelle Pompe/Face vient chaque pistolet, pas seulement son numero global.
+    Deplacee depuis accounts/views.py (etait _structurer_pistolets_par_pompe_face) pour
+    permettre sa reutilisation depuis caisse/services.py sans creer d import circulaire."""
+    pistolets = list(
+        pistolets_queryset.select_related("face", "face__pompe").order_by(
+            "face__pompe__numero", "face__numero", "numero"
+        )
+    )
+
+    structure = []
+    pompe_courante = None
+    face_courante = None
+
+    for pistolet in pistolets:
+        pompe = pistolet.face.pompe
+        face = pistolet.face
+
+        if pompe_courante is None or pompe_courante["pompe"].pk != pompe.pk:
+            pompe_courante = {"pompe": pompe, "faces": []}
+            structure.append(pompe_courante)
+            face_courante = None
+
+        if face_courante is None or face_courante["face"].pk != face.pk:
+            face_courante = {"face": face, "pistolets": []}
+            pompe_courante["faces"].append(face_courante)
+
+        face_courante["pistolets"].append(pistolet)
+
+    return structure

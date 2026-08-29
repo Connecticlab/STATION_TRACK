@@ -100,39 +100,6 @@ def employee_login(request):
     return render(request, "accounts/login.html", {"erreur": erreur})
 
 
-def _structurer_pistolets_par_pompe_face(pistolets_queryset):
-    """Organise un queryset de Pistolet en une structure hierarchique
-    [{"pompe": Pompe, "faces": [{"face": Face, "pistolets": [Pistolet, ...]}, ...]}, ...]
-    pour un affichage groupe (jamais une liste plate) — le pompiste doit toujours voir
-    de quelle Pompe/Face vient chaque pistolet, pas seulement son numero global."""
-    pistolets = list(
-        pistolets_queryset.select_related("face", "face__pompe").order_by(
-            "face__pompe__numero", "face__numero", "numero"
-        )
-    )
-
-    structure = []
-    pompe_courante = None
-    face_courante = None
-
-    for pistolet in pistolets:
-        pompe = pistolet.face.pompe
-        face = pistolet.face
-
-        if pompe_courante is None or pompe_courante["pompe"].pk != pompe.pk:
-            pompe_courante = {"pompe": pompe, "faces": []}
-            structure.append(pompe_courante)
-            face_courante = None
-
-        if face_courante is None or face_courante["face"].pk != face.pk:
-            face_courante = {"face": face, "pistolets": []}
-            pompe_courante["faces"].append(face_courante)
-
-        face_courante["pistolets"].append(pistolet)
-
-    return structure
-
-
 @require_employee_login(roles=[Employee.POMPISTE])
 def pompiste_accueil(request):
     """Menu d'accueil Pompiste (4 boutons colores) — toujours le PREMIER ecran affiche
@@ -156,7 +123,7 @@ def pompiste_caisse(request):
     from django.utils import timezone
 
     from caisse.models import ReleveIndexPompiste, SessionCaisse
-    from stations.services import pistolets_affectes_a
+    from stations.services import pistolets_affectes_a, structurer_pistolets_par_pompe_face
 
     from django.db.models import Q
 
@@ -164,7 +131,7 @@ def pompiste_caisse(request):
 
     employee = request.employee
     pistolets = pistolets_affectes_a(employee)
-    structure = _structurer_pistolets_par_pompe_face(pistolets)
+    structure = structurer_pistolets_par_pompe_face(pistolets)
 
     # Si aucun pistolet disponible, distinguer TROIS cas — jamais laisser un ecran
     # silencieusement vide avec un bouton inoperant : 1) station sans aucune pompe
@@ -278,7 +245,7 @@ def pompiste_finaliser(request):
 
     from caisse.models import ReleveIndexPompiste, SessionCaisse
     from caisse.services import calculer_apercu_theorique
-    from stations.services import pistolets_affectes_a
+    from stations.services import pistolets_affectes_a, structurer_pistolets_par_pompe_face
 
     employee = request.employee
     aujourdhui = timezone.localtime(timezone.now()).date()
@@ -299,7 +266,7 @@ def pompiste_finaliser(request):
     # Detail par pistolet (index depart/fin, litres vendus) — structure par Pompe/Face,
     # jamais une liste plate, cohérent avec toutes nos regles d'affichage deja etablies.
     pistolets = pistolets_affectes_a(employee)
-    structure = _structurer_pistolets_par_pompe_face(pistolets)
+    structure = structurer_pistolets_par_pompe_face(pistolets)
     for groupe_pompe in structure:
         for groupe_face in groupe_pompe["faces"]:
             for pistolet in groupe_face["pistolets"]:
@@ -396,7 +363,11 @@ def pompiste_recu(request, session_id):
     from django.shortcuts import get_object_or_404
 
     from caisse.models import ReleveIndexPompiste, SessionCaisse
-    from stations.services import litres_vendus_par_carburant, pistolets_affectes_a
+    from stations.services import (
+        litres_vendus_par_carburant,
+        pistolets_affectes_a,
+        structurer_pistolets_par_pompe_face,
+    )
 
     employee = request.employee
     # Verification objet, pas seulement isolation par societe : un pompiste ne doit
@@ -419,7 +390,7 @@ def pompiste_recu(request, session_id):
     # Structure par Pompe/Face pour un vrai tableau (Carburant/Debut/Fin/Vendu), meme
     # composant que pompiste_finaliser — jamais une liste plate.
     pistolets = pistolets_affectes_a(employee)
-    structure = _structurer_pistolets_par_pompe_face(pistolets)
+    structure = structurer_pistolets_par_pompe_face(pistolets)
     for groupe_pompe in structure:
         for groupe_face in groupe_pompe["faces"]:
             for pistolet in groupe_face["pistolets"]:
@@ -523,48 +494,15 @@ def pompiste_pv_detail(request, session_id):
     renvoie un 404 plutot qu'une page a moitie vide."""
     from django.shortcuts import get_object_or_404
 
-    from caisse.models import ReleveIndexGerant, ReleveIndexPompiste, SessionCaisse
-    from stations.services import pistolets_affectes_a
+    from caisse.models import SessionCaisse
+    from caisse.services import construire_detail_pistolets_pv
 
     employee = request.employee
     session = get_object_or_404(
         SessionCaisse, pk=session_id, employee=employee, resultat__isnull=False
     )
 
-    releves_gerant = ReleveIndexGerant.objects.filter(
-        employee_pompiste=employee, date_heure__date=session.date
-    )
-    releves_pompiste = ReleveIndexPompiste.objects.filter(session_caisse=session)
-    pistolets = pistolets_affectes_a(employee)
-    structure = _structurer_pistolets_par_pompe_face(pistolets)
-    for groupe_pompe in structure:
-        for groupe_face in groupe_pompe["faces"]:
-            for pistolet in groupe_face["pistolets"]:
-                releve_depart = releves_gerant.filter(
-                    pistolet=pistolet, type_releve=ReleveIndexGerant.DEPART
-                ).first()
-                releve_fin = releves_gerant.filter(
-                    pistolet=pistolet, type_releve=ReleveIndexGerant.FIN
-                ).first()
-                pistolet.index_depart = releve_depart.valeur_index if releve_depart else None
-                pistolet.index_fin = releve_fin.valeur_index if releve_fin else None
-                if releve_depart and releve_fin:
-                    pistolet.litres_vendus = releve_fin.valeur_index - releve_depart.valeur_index
-                else:
-                    pistolet.litres_vendus = None
-
-                releve_depart_pompiste = releves_pompiste.filter(
-                    pistolet=pistolet, type_releve="depart"
-                ).first()
-                releve_fin_pompiste = releves_pompiste.filter(
-                    pistolet=pistolet, type_releve="fin"
-                ).first()
-                pistolet.index_depart_pompiste = releve_depart_pompiste.valeur_index if releve_depart_pompiste else None
-                pistolet.index_fin_pompiste = releve_fin_pompiste.valeur_index if releve_fin_pompiste else None
-                if releve_depart_pompiste and releve_fin_pompiste:
-                    pistolet.litres_vendus_pompiste = releve_fin_pompiste.valeur_index - releve_depart_pompiste.valeur_index
-                else:
-                    pistolet.litres_vendus_pompiste = None
+    structure = construire_detail_pistolets_pv(employee, session)
 
     contexte = {
         "employee": employee,
@@ -827,13 +765,13 @@ def gerant_releve_pompiste(request, pompiste_id):
     from django.utils import timezone
 
     from caisse.models import ReleveIndexGerant, SessionCaisse
-    from stations.services import pistolets_affectes_a
+    from stations.services import pistolets_affectes_a, structurer_pistolets_par_pompe_face
 
     employee = request.employee
     pompiste = get_object_or_404(Employee, pk=pompiste_id, role=Employee.POMPISTE, station=employee.station)
 
     pistolets = pistolets_affectes_a(pompiste)
-    structure = _structurer_pistolets_par_pompe_face(pistolets)
+    structure = structurer_pistolets_par_pompe_face(pistolets)
 
     aujourdhui = timezone.localtime(timezone.now()).date()
     session_pompiste = SessionCaisse.objects.filter(employee=pompiste, date=aujourdhui).first()
@@ -940,9 +878,12 @@ def gerant_confronter(request, pompiste_id):
     from django.shortcuts import get_object_or_404
     from django.utils import timezone
 
-    from caisse.models import ReleveIndexGerant, ReleveIndexPompiste, SessionCaisse
-    from caisse.services import appliquer_resultat_au_solde, confronter_session_caisse
-    from stations.services import pistolets_affectes_a
+    from caisse.models import SessionCaisse
+    from caisse.services import (
+        appliquer_resultat_au_solde,
+        confronter_session_caisse,
+        construire_detail_pistolets_pv,
+    )
 
     employee = request.employee
     pompiste = get_object_or_404(Employee, pk=pompiste_id, role=Employee.POMPISTE, station=employee.station)
@@ -965,42 +906,7 @@ def gerant_confronter(request, pompiste_id):
     # Detail par pistolet : les DEUX relevés cote a cote (Gerant, qui fait foi, ET
     # Pompiste, pour permettre de localiser precisement ou se situe une divergence —
     # jamais seulement un total agrege en litres qui ne dit pas quel pistolet diverge).
-    releves_gerant = ReleveIndexGerant.objects.filter(
-        employee_pompiste=pompiste, date_heure__date=aujourdhui
-    )
-    releves_pompiste = ReleveIndexPompiste.objects.filter(
-        session_caisse=session
-    )
-    pistolets = pistolets_affectes_a(pompiste)
-    structure = _structurer_pistolets_par_pompe_face(pistolets)
-    for groupe_pompe in structure:
-        for groupe_face in groupe_pompe["faces"]:
-            for pistolet in groupe_face["pistolets"]:
-                releve_depart = releves_gerant.filter(
-                    pistolet=pistolet, type_releve=ReleveIndexGerant.DEPART
-                ).first()
-                releve_fin = releves_gerant.filter(
-                    pistolet=pistolet, type_releve=ReleveIndexGerant.FIN
-                ).first()
-                pistolet.index_depart = releve_depart.valeur_index if releve_depart else None
-                pistolet.index_fin = releve_fin.valeur_index if releve_fin else None
-                if releve_depart and releve_fin:
-                    pistolet.litres_vendus = releve_fin.valeur_index - releve_depart.valeur_index
-                else:
-                    pistolet.litres_vendus = None
-
-                releve_depart_pompiste = releves_pompiste.filter(
-                    pistolet=pistolet, type_releve="depart"
-                ).first()
-                releve_fin_pompiste = releves_pompiste.filter(
-                    pistolet=pistolet, type_releve="fin"
-                ).first()
-                pistolet.index_depart_pompiste = releve_depart_pompiste.valeur_index if releve_depart_pompiste else None
-                pistolet.index_fin_pompiste = releve_fin_pompiste.valeur_index if releve_fin_pompiste else None
-                if releve_depart_pompiste and releve_fin_pompiste:
-                    pistolet.litres_vendus_pompiste = releve_fin_pompiste.valeur_index - releve_depart_pompiste.valeur_index
-                else:
-                    pistolet.litres_vendus_pompiste = None
+    structure = construire_detail_pistolets_pv(pompiste, session)
 
     contexte = {
         "employee": employee,
@@ -1024,7 +930,7 @@ def gerant_finaliser(request, pompiste_id):
 
     from caisse.models import ReleveIndexGerant, SessionCaisse
     from caisse.services import calculer_apercu_theorique
-    from stations.services import pistolets_affectes_a
+    from stations.services import pistolets_affectes_a, structurer_pistolets_par_pompe_face
 
     employee = request.employee
     pompiste = get_object_or_404(Employee, pk=pompiste_id, role=Employee.POMPISTE, station=employee.station)
@@ -1049,7 +955,7 @@ def gerant_finaliser(request, pompiste_id):
     # Detail par pistolet (index depart/fin, litres vendus) — structure par Pompe/Face,
     # meme composant que pompiste_finaliser.
     pistolets = pistolets_affectes_a(pompiste)
-    structure = _structurer_pistolets_par_pompe_face(pistolets)
+    structure = structurer_pistolets_par_pompe_face(pistolets)
     for groupe_pompe in structure:
         for groupe_face in groupe_pompe["faces"]:
             for pistolet in groupe_face["pistolets"]:
@@ -1195,13 +1101,14 @@ def admin_station_detail(request, station_id):
     from django.shortcuts import get_object_or_404
 
     from stations.models import Pistolet, Station
+    from stations.services import structurer_pistolets_par_pompe_face
 
     employee = request.employee
     societe = request.societe
     station = get_object_or_404(Station, pk=station_id)
 
     pistolets = Pistolet.objects.filter(face__pompe__station=station)
-    structure = _structurer_pistolets_par_pompe_face(pistolets)
+    structure = structurer_pistolets_par_pompe_face(pistolets)
 
     contexte = {
         "employee": employee,
