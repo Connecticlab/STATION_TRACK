@@ -2652,3 +2652,49 @@ def gerant_depotage(request):
         "succes": succes,
     }
     return render(request, "accounts/gerant_depotage.html", contexte)
+
+
+@require_employee_login(roles=[Employee.GERANT, Employee.CHEF_DE_PISTE, Employee.POMPISTE])
+def telecharger_pv_pdf(request, session_id):
+    """Genere et telecharge le PV de caisse au format PDF (WeasyPrint), pour une session
+    deja confrontee. Accessible au Pompiste concerne (sa PROPRE session uniquement,
+    jamais celle d un autre) et au Gerant/Chef de piste de la station du pompiste
+    (jamais une autre station — verification explicite, pas seulement le role).
+    Reutilise construire_detail_pistolets_pv, meme source de verite que les ecrans
+    HTML de confrontation — jamais un calcul different entre l affichage et le PDF."""
+    from django.http import Http404, HttpResponse
+    from django.shortcuts import get_object_or_404
+    from django.template.loader import render_to_string
+    from weasyprint import HTML
+
+    from caisse.models import SessionCaisse
+    from caisse.services import construire_detail_pistolets_pv
+
+    employee = request.employee
+    societe = request.societe
+
+    session = get_object_or_404(SessionCaisse, pk=session_id, resultat__isnull=False)
+    pompiste = session.employee
+
+    if employee.role == Employee.POMPISTE:
+        if pompiste.pk != employee.pk:
+            raise Http404
+    else:
+        if pompiste.station_id != employee.station_id:
+            raise Http404
+
+    structure = construire_detail_pistolets_pv(pompiste, session)
+
+    contexte = {
+        "societe": societe,
+        "pompiste": pompiste,
+        "session": session,
+        "structure": structure,
+    }
+    html_string = render_to_string("accounts/pv_pdf.html", contexte)
+    pdf_bytes = HTML(string=html_string, base_url=request.build_absolute_uri("/")).write_pdf()
+
+    nom_fichier = f"PV_caisse_{pompiste.nom_complet.replace(' ', '_')}_{session.date}.pdf"
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{nom_fichier}"'
+    return response

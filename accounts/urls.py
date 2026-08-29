@@ -15,6 +15,7 @@ urlpatterns = [
     path("pompiste/historique/", views.pompiste_historique, name="pompiste_historique"),
     path("pompiste/historique-pv/", views.pompiste_historique_pv, name="pompiste_historique_pv"),
     path("pompiste/pv/<int:session_id>/", views.pompiste_pv_detail, name="pompiste_pv_detail"),
+    path("pv/<int:session_id>/pdf/", views.telecharger_pv_pdf, name="telecharger_pv_pdf"),
     path("gerant/", views.gerant_accueil, name="gerant_accueil"),
     path("gerant/jauge/", views.gerant_jauge, name="gerant_jauge"),
     path("gerant/depotage/", views.gerant_depotage, name="gerant_depotage"),

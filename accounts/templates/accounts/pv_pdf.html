@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>PV de caisse — {{ pompiste.nom_complet }} — {{ session.date|date:"d/m/Y" }}</title>
+{% load formatage %}
+<style>
+@page {
+  size: A4;
+  margin: 20mm 16mm 22mm 16mm;
+  @bottom-center {
+    content: "Page " counter(page) " / " counter(pages);
+    font-size: 9px;
+    color: #888888;
+  }
+}
+*{box-sizing:border-box}
+body{
+  margin:0;font-family:'DejaVu Sans', Arial, sans-serif;font-size:11px;color:#1a1a1a;
+}
+.entete{
+  display:flex;justify-content:space-between;align-items:center;
+  border-bottom:2px solid #1769ff;padding-bottom:12px;margin-bottom:18px;
+}
+.entete .logo-zone{display:flex;align-items:center;gap:12px;}
+.entete img.logo{max-height:48px;max-width:120px;}
+.entete .societe-nom{font-size:16px;font-weight:800;color:#1769ff;}
+.entete .titre-doc{text-align:right;}
+.entete .titre-doc h1{font-size:15px;margin:0 0 4px;}
+.entete .titre-doc .sous{font-size:11px;color:#666666;}
+.result-banner{
+  border-radius:8px;padding:16px;text-align:center;margin-bottom:16px;border:1.5px solid #dddddd;
+}
+.result-banner.exact{background:#eafaf1;border-color:#8fd9b6;}
+.result-banner.surplus{background:#eaf1ff;border-color:#9dbeff;}
+.result-banner.manquant{background:#ffecef;border-color:#ffb3bf;}
+.result-banner h2{font-size:14px;margin:0 0 4px;}
+.result-banner .montant{font-size:18px;font-weight:800;}
+.section{margin-bottom:16px;}
+.section h3{
+  font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#666666;
+  margin:0 0 8px;border-bottom:1px solid #dddddd;padding-bottom:4px;
+}
+table{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:6px;}
+th,td{padding:5px 6px;text-align:center;border-bottom:1px solid #e5e5e5;}
+th{color:#666666;font-weight:600;font-size:9.5px;}
+td:first-child,th:first-child{text-align:left;}
+.pompe-titre{font-size:11px;font-weight:700;color:#d97706;margin:8px 0 4px;text-transform:uppercase;}
+.detail-row{display:flex;justify-content:space-between;font-size:11px;padding:5px 0;border-bottom:1px solid #eeeeee;}
+.detail-row .val{font-weight:700;}
+.pied-signature{margin-top:24px;display:flex;justify-content:space-between;gap:24px;}
+.pied-signature .bloc{flex:1;border-top:1px solid #999999;padding-top:4px;font-size:9.5px;color:#666666;text-align:center;}
+.divergence-note{
+  background:#fff4e5;border:1px solid #ffd699;border-radius:6px;padding:8px 10px;
+  font-size:10px;color:#8a5a00;margin-bottom:14px;
+}
+</style>
+</head>
+<body>
+  <div class="entete">
+    <div class="logo-zone">
+      {% if societe.logo %}<img class="logo" src="{{ societe.logo.url }}" alt="{{ societe.nom }}">{% endif %}
+      <div class="societe-nom">{{ societe.nom }}</div>
+    </div>
+    <div class="titre-doc">
+      <h1>PV de caisse</h1>
+      <div class="sous">{{ pompiste.nom_complet }} — {{ session.date|date:"d/m/Y" }}</div>
+    </div>
+  </div>
+
+  {% if session.divergence_signalee %}
+    <div class="divergence-note">Divergence signalée entre le relevé du pompiste et le relevé indépendant (au-delà de la marge de tolérance).</div>
+  {% endif %}
+
+  <div class="result-banner {{ session.resultat }}">
+    <h2>
+      {% if session.resultat == "exact" %}Caisse exacte
+      {% elif session.resultat == "surplus" %}Surplus
+      {% elif session.resultat == "manquant" %}Manquant{% endif %}
+    </h2>
+    <div class="montant">{{ session.montant_ecart|fcfa }}</div>
+  </div>
+
+  <div class="section">
+    <h3>Détail par pistolet — Pompiste vs Gérant</h3>
+    {% for groupe_pompe in structure %}
+      <div class="pompe-titre">Pompe {{ groupe_pompe.pompe.numero }}</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Carburant</th>
+            <th>Pompiste — Début</th>
+            <th>Pompiste — Fin</th>
+            <th>Pompiste — Vendu</th>
+            <th>Gérant — Début</th>
+            <th>Gérant — Fin</th>
+            <th>Gérant — Vendu</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for groupe_face in groupe_pompe.faces %}
+            {% for pistolet in groupe_face.pistolets %}
+              <tr>
+                <td>{{ pistolet.get_carburant_display }} {{ pistolet.numero }}</td>
+                <td>{{ pistolet.index_depart_pompiste|default:"—" }}</td>
+                <td>{{ pistolet.index_fin_pompiste|default:"—" }}</td>
+                <td>{{ pistolet.litres_vendus_pompiste|default:"—" }}</td>
+                <td>{{ pistolet.index_depart|default:"—" }}</td>
+                <td>{{ pistolet.index_fin|default:"—" }}</td>
+                <td>{{ pistolet.litres_vendus|default:"—" }}</td>
+              </tr>
+            {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endfor %}
+  </div>
+
+  <div class="section">
+    <h3>Calcul théorique</h3>
+    <table>
+      <thead>
+        <tr><th>Carburant</th><th>Litres</th><th>Montant</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Gasoil</td><td>{{ session.litres_gasoil_vendus }}</td><td>{{ session.montant_theorique_gasoil|fcfa }}</td></tr>
+        <tr><td>Essence</td><td>{{ session.litres_essence_vendus }}</td><td>{{ session.montant_theorique_essence|fcfa }}</td></tr>
+      </tbody>
+    </table>
+    <div class="detail-row"><span>Total théorique</span><span class="val">{{ session.montant_theorique_total|fcfa }}</span></div>
+  </div>
+
+  <div class="section">
+    <h3>Détail</h3>
+    <div class="detail-row"><span>Déclaré par le pompiste</span><span class="val">{{ session.montant_encaisse|fcfa }}</span></div>
+    <div class="detail-row"><span>Vérifié par le Gérant</span><span class="val">{{ session.montant_verse_gerant|fcfa }}</span></div>
+    {% if session.ecart_montant_pompiste_gerant %}
+    <div class="detail-row"><span>Écart pompiste / Gérant</span><span class="val">{{ session.ecart_montant_pompiste_gerant|fcfa }}</span></div>
+    {% endif %}
+    <div class="detail-row"><span>Écart gasoil</span><span class="val">{{ session.ecart_gasoil }} L</span></div>
+    <div class="detail-row"><span>Écart essence</span><span class="val">{{ session.ecart_essence }} L</span></div>
+  </div>
+
+  <div class="pied-signature">
+    <div class="bloc">Signature Pompiste</div>
+    <div class="bloc">Signature Gérant</div>
+  </div>
+</body>
+</html>
