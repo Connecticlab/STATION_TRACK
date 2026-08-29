@@ -1,0 +1,54 @@
+{% extends "platform_admin/base.html" %}
+
+{% block title %}StationTrack — Sociétés{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Sociétés</h1>
+      <p>Créer et administrer les sociétés clientes de la plateforme.</p>
+    </div>
+    <a href="{% url 'platform_admin:admin_societe_creer' %}" class="action" style="border-color:var(--blue);color:var(--blue);">+ Nouvelle société</a>
+  </div>
+
+  <div class="card">
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Société</th>
+            <th>Sous-domaine</th>
+            <th>Base de données</th>
+            <th>Créée le</th>
+            <th>Statut</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for societe in societes %}
+            <tr>
+              <td>{{ societe.nom }}</td>
+              <td>{{ societe.sous_domaine }}</td>
+              <td style="font-size:11px;color:var(--muted);">{{ societe.nom_base_donnees }}</td>
+              <td>{{ societe.date_creation|date:"d/m/Y" }}</td>
+              <td>
+                {% if societe.actif %}<span class="status">Active</span>
+                {% else %}<span class="status muted">Inactive</span>{% endif %}
+              </td>
+              <td>
+                <form method="post" action="{% url 'platform_admin:admin_societe_toggle_actif' societe.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="action" style="padding:6px 12px;font-size:10px;max-width:110px;">
+                    {% if societe.actif %}Désactiver{% else %}Activer{% endif %}
+                  </button>
+                </form>
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="6" style="color:var(--muted);">Aucune société pour l'instant.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% endblock %}

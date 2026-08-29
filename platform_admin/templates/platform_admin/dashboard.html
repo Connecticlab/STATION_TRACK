@@ -1,11 +1,57 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>StationTrack — Tableau de bord Super Admin</title>
-</head>
-<body>
-    <h1>Tableau de bord Super Admin</h1>
-    <p>Connexion réussie. Cette page est un placeholder.</p>
-</body>
-</html>
+{% extends "platform_admin/base.html" %}
+
+{% block title %}StationTrack — Tableau de bord{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Bonjour, {{ super_admin.nom_complet }}</h1>
+      <p>Vue d'ensemble de la plateforme multi-tenant.</p>
+    </div>
+  </div>
+
+  <div class="grid kpis">
+    <div class="card kpi">
+      <div class="label">Sociétés</div>
+      <div class="val">{{ nb_societes }}</div>
+      <div class="hint blue">Total plateforme</div>
+    </div>
+    <div class="card kpi">
+      <div class="label">Sociétés actives</div>
+      <div class="val">{{ nb_societes_actives }}</div>
+      <div class="hint green">Sur {{ nb_societes }} au total</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <h3>Sociétés récemment créées</h3>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Société</th>
+            <th>Sous-domaine</th>
+            <th>Créée le</th>
+            <th>Statut</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for societe in societes_recentes %}
+            <tr>
+              <td>{{ societe.nom }}</td>
+              <td>{{ societe.sous_domaine }}</td>
+              <td>{{ societe.date_creation|date:"d/m/Y" }}</td>
+              <td>
+                {% if societe.actif %}<span class="status">Active</span>
+                {% else %}<span class="status muted">Inactive</span>{% endif %}
+              </td>
+            </tr>
+          {% empty %}
+            <tr><td colspan="4" style="color:var(--muted);">Aucune société pour l'instant.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <a href="{% url 'platform_admin:admin_societes' %}" class="action" style="margin-top:14px;">Voir toutes les sociétés</a>
+  </div>
+{% endblock %}

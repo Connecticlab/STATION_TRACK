@@ -1,0 +1,84 @@
+{% extends "platform_admin/base.html" %}
+
+{% block title %}StationTrack — Nouvelle société{% endblock %}
+
+{% block extra_style %}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin-bottom:7px;}
+.field input{
+  width:100%;height:46px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+  color:var(--text);font-size:14px;padding:0 13px;font-family:inherit;
+}
+.field input:focus{outline:none;border-color:var(--blue);}
+.field .hint{font-size:10.5px;color:var(--muted);margin-top:5px;}
+.error-banner{
+  background:var(--st-red-bg);border:1px solid rgba(255,84,112,.32);color:var(--st-red-text);
+  border-radius:9px;padding:12px 14px;font-size:13px;margin-bottom:20px;max-width:700px;
+}
+.error-banner ul{margin:6px 0 0;padding-left:18px;}
+.section-sep{
+  font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);
+  margin:22px 0 12px;padding-top:16px;border-top:1px solid var(--line);
+}
+.big-btn{
+  border:0;border-radius:10px;background:var(--blue);color:white;font-weight:800;
+  font-size:13px;cursor:pointer;font-family:inherit;padding:12px 24px;
+}
+.big-btn:hover{opacity:.92;}
+@media(max-width:700px){
+  .formgrid{grid-template-columns:1fr;}
+}
+{% endblock %}
+
+{% block content %}
+  <div class="head">
+    <div>
+      <h1>Nouvelle société</h1>
+      <p>Crée la base de données, les migrations, et le premier compte Admin Siège.</p>
+    </div>
+    <a href="{% url 'platform_admin:admin_societes' %}" class="action">Retour</a>
+  </div>
+
+  {% if erreurs %}
+  <div class="error-banner">
+    <ul>{% for e in erreurs %}<li>{{ e }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <div class="card" style="max-width:700px;">
+    <form method="post">
+      {% csrf_token %}
+      <div class="formgrid">
+        <div class="field">
+          <label for="nom">Nom de la société</label>
+          <input type="text" id="nom" name="nom" placeholder="Ex. Station Eydon Kaolack" required>
+        </div>
+        <div class="field">
+          <label for="sous_domaine">Sous-domaine</label>
+          <input type="text" id="sous_domaine" name="sous_domaine" placeholder="Ex. eydon" required>
+          <div class="hint">Sera accessible via &lt;sous-domaine&gt;.carburan.sn — lettres, chiffres, tirets uniquement.</div>
+        </div>
+      </div>
+
+      <div class="section-sep">Premier compte Admin Siège</div>
+      <div class="formgrid">
+        <div class="field">
+          <label for="admin_nom">Nom complet</label>
+          <input type="text" id="admin_nom" name="admin_nom" placeholder="Ex. Aïssatou Ndiaye" required>
+        </div>
+        <div class="field">
+          <label for="admin_telephone">Téléphone</label>
+          <input type="text" id="admin_telephone" name="admin_telephone" placeholder="Ex. 770000004" required>
+        </div>
+        <div class="field">
+          <label for="admin_password">Mot de passe</label>
+          <input type="password" id="admin_password" name="admin_password" required>
+          <div class="hint">Au moins 8 caractères.</div>
+        </div>
+      </div>
+
+      <button type="submit" class="big-btn">Créer la société</button>
+    </form>
+  </div>
+{% endblock %}
