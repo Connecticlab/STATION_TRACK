@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StationTrack — Ma caisse</title>
+{% load formatage %}
+<link rel="stylesheet" href="/static/css/design-system.css">
+<style>
+:root{
+  --black:var(--st-bg);--panel:var(--st-panel);--panel2:var(--st-panel-2);--line:var(--st-line);
+  --blue:var(--st-blue);--orange:var(--st-orange);--green:var(--st-green);--white:var(--st-text);--muted:var(--st-muted);
+  --danger:var(--st-red);--danger-bg:var(--st-red-bg);
+  --blue-text:var(--st-blue-text);--orange-text:var(--st-orange-text);--green-text:var(--st-green-text);
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:var(--font-sans);background:var(--black);color:var(--white);transition:background .2s ease,color .2s ease}
+body{padding:16px;padding-bottom:48px}
+.wrap{max-width:640px;margin:0 auto}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding:4px 2px}
+.header h1{font-size:19px;margin:0}
+.header .role{font-size:11px;color:var(--muted);margin-top:2px}
+.theme-toggle{
+  width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+  color:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center
+}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 4px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+.card h3{font-size:14px;margin:14px 0 8px;color:var(--white)}
+.pistolet-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.pistolet-row label{flex:1;font-size:13.5px;color:var(--white)}
+.pistolet-row input{
+  width:130px;height:50px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+  color:var(--white);font-size:20px;text-align:center;padding:0 8px;font-family:inherit
+}
+.pistolet-row input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(23,105,255,.16)}
+.big-btn{
+  width:100%;height:58px;border:0;border-radius:14px;color:white;font-weight:800;
+  font-size:16px;cursor:pointer;margin-top:8px;font-family:inherit;text-decoration:none;
+  display:flex;align-items:center;justify-content:center
+}
+.big-btn.start{background:var(--green);box-shadow:0 10px 26px rgba(31,174,99,.3)}
+.big-btn.close{background:var(--danger);box-shadow:0 10px 26px rgba(255,84,112,.28)}
+.payment-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}
+.pay-form{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+.pay-form .label{font-size:12px;font-weight:700;margin-bottom:8px}
+.method-dot{display:inline-block;width:9px;height:9px;border-radius:3px;background:currentColor;vertical-align:1px;margin-right:2px}
+.pay-form.cash .label{color:var(--green)}
+.pay-form.wave .label{color:var(--blue)}
+.pay-form.orange .label{color:var(--st-orange-text)}
+.pay-form input{
+  width:100%;height:44px;background:var(--black);border:1px solid var(--line);border-radius:8px;
+  color:var(--white);font-size:16px;text-align:center;margin-bottom:8px;font-family:inherit
+}
+.pay-form button{
+  width:100%;height:40px;border:0;border-radius:8px;color:white;font-weight:700;font-size:13px;
+  cursor:pointer;font-family:inherit
+}
+.pay-form.cash button{background:var(--green)}
+.pay-form.wave button{background:var(--blue)}
+.pay-form.orange button{background:var(--orange)}
+.totaux{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
+.total-item{background:var(--panel2);border-radius:10px;padding:10px;text-align:center}
+.total-item .val{font-size:16px;font-weight:800}
+.total-item .lbl{font-size:9.5px;color:var(--muted);text-transform:uppercase;margin-top:2px}
+.note{font-size:11px;color:var(--muted);margin-top:10px;text-align:center}
+.error-banner{
+  background:var(--danger-bg);border:1px solid rgba(255,84,112,.32);color:var(--st-red-text);
+  border-radius:10px;padding:12px 14px;font-size:13px;margin-bottom:16px
+}
+.error-banner ul{margin:6px 0 0;padding-left:18px}
+.confirmation{text-align:center;padding:36px 20px}
+.confirmation .icon{font-size:48px;margin-bottom:10px}
+.confirmation h2{font-size:20px;margin:0 0 8px}
+.confirmation p{color:var(--muted);font-size:13.5px;margin:0}
+.back{
+  display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:14px;font-weight:700;
+  text-decoration:none;height:52px;line-height:52px;border:1px solid var(--line);border-radius:12px
+}
+.wizard-progress{margin-bottom:16px}
+.wizard-track{height:6px;background:var(--panel);border:1px solid var(--line);border-radius:99px;overflow:hidden}
+.wizard-fill{height:100%;background:var(--blue);border-radius:99px;transition:width .25s ease}
+.wizard-label{font-size:16px;font-weight:800;color:var(--st-orange-text);text-align:center;margin-top:10px}
+.wizard-nav{display:flex;gap:10px;margin-top:8px}
+.wizard-btn{
+  flex:1;height:52px;border-radius:12px;font-weight:800;font-size:14px;cursor:pointer;
+  font-family:inherit;border:1px solid var(--line);background:transparent;color:var(--white)
+}
+.wizard-btn.next{background:var(--blue);border:none}
+.wizard-btn.prev{background:var(--orange);border:none;color:white}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div>
+      <h1>{{ employee.nom_complet }}</h1>
+      <div class="role">Pompiste</div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" type="button" aria-label="Changer de thème">
+      <span id="themeIcon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+    </button>
+  </div>
+
+  {% if erreurs %}
+  <div class="error-banner">
+    Corrigez les points suivants :
+    <ul>
+      {% for e in erreurs %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if a_fin %}
+    <div class="card confirmation">
+      <div class="icon"><svg viewBox="0 0 24 24" width="48" height="48" style="margin:0 auto;display:block;" stroke="var(--green)" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+      <h2>Caisse clôturée</h2>
+      <p>Votre caisse d'aujourd'hui est clôturée, revenez demain.</p>
+    </div>
+
+    <a class="big-btn start" href="{% url 'accounts:pompiste_recu' session.pk %}">VOIR MON REÇU</a>
+    <a class="big-btn" style="background:var(--blue);color:white;" href="{% url 'accounts:pompiste_historique' %}">MON HISTORIQUE</a>
+    <a class="big-btn" style="background:var(--danger);color:white;" href="{% url 'accounts:logout' %}">SE DÉCONNECTER</a>
+
+  {% else %}
+
+    {% if a_depart %}
+      <div class="card">
+        <h2>Paiements du service</h2>
+        <div class="payment-grid">
+          <form class="pay-form cash" method="post" action="{% url 'accounts:pompiste_ajouter_paiement' %}">
+            {% csrf_token %}
+            <input type="hidden" name="methode" value="cash">
+            <div class="label"><span class="method-dot"></span> Cash</div>
+            <input type="number" name="montant" inputmode="decimal" placeholder="Montant" required>
+            <button type="submit">Ajouter</button>
+          </form>
+          <form class="pay-form wave" method="post" action="{% url 'accounts:pompiste_ajouter_paiement' %}">
+            {% csrf_token %}
+            <input type="hidden" name="methode" value="wave">
+            <div class="label"><span class="method-dot"></span> Wave</div>
+            <input type="number" name="montant" inputmode="decimal" placeholder="Montant" required>
+            <button type="submit">Ajouter</button>
+          </form>
+        </div>
+        <div class="payment-grid" style="grid-template-columns:1fr">
+          <form class="pay-form orange" method="post" action="{% url 'accounts:pompiste_ajouter_paiement' %}">
+            {% csrf_token %}
+            <input type="hidden" name="methode" value="orange_money">
+            <div class="label"><span class="method-dot"></span> Orange Money</div>
+            <input type="number" name="montant" inputmode="decimal" placeholder="Montant" required>
+            <button type="submit">Ajouter</button>
+          </form>
+        </div>
+
+        <div class="totaux">
+          <div class="total-item"><div class="val">{{ session.montant_cash|fcfa }}</div><div class="lbl">Cash</div></div>
+          <div class="total-item"><div class="val">{{ session.montant_wave|fcfa }}</div><div class="lbl">Wave</div></div>
+          <div class="total-item"><div class="val">{{ session.montant_orange_money|fcfa }}</div><div class="lbl">Orange</div></div>
+        </div>
+        <div class="note">Ce total sert de référence — vous confirmerez votre montant réel à la clôture.</div>
+      </div>
+    {% endif %}
+
+    {% if aucune_pompe_station %}
+      <div class="card" style="border-left:3px solid var(--orange);">
+        <p style="margin:0;font-size:13px;">
+          <strong>Aucune pompe configurée</strong><br>
+          Aucune pompe n'a encore été configurée pour votre station. Contactez l'Admin Siège.
+        </p>
+      </div>
+    {% elif aucune_affectation %}
+      <div class="card" style="border-left:3px solid var(--orange);">
+        <p style="margin:0;font-size:13px;">
+          <strong>Aucune pompe affectée</strong><br>
+          Vous n'êtes actuellement affecté à aucune pompe. Contactez votre Gérant ou l'Admin Siège.
+        </p>
+      </div>
+    {% elif pompe_indisponible %}
+      <div class="card" style="border-left:3px solid var(--orange);">
+        <p style="margin:0;font-size:13px;">
+          <strong>Pompe {{ pompe_indisponible.numero }} {% if pompe_indisponible.statut == "maintenance" %}en maintenance{% else %}en panne{% endif %}</strong><br>
+          Vous ne pouvez pas prendre d'index tant que cette pompe n'est pas remise en service. Contactez votre Gérant ou l'Admin Siège.
+        </p>
+      </div>
+    {% endif %}
+    <form method="post" id="indexForm">
+      {% csrf_token %}
+      <div class="wizard-progress" id="wizardProgress" style="display:none;">
+        <div class="wizard-track"><div class="wizard-fill" id="wizardFill"></div></div>
+        <div class="wizard-label" id="wizardLabel"></div>
+      </div>
+      {% if structure %}
+        {% for groupe_pompe in structure %}
+          <div class="card">
+            <h2>Pompe {{ groupe_pompe.pompe.numero }}</h2>
+            {% for groupe_face in groupe_pompe.faces %}
+              <h3>Face {{ groupe_face.face.numero }}</h3>
+              {% for pistolet in groupe_face.pistolets %}
+                <div class="pistolet-row" data-pompe="{{ groupe_pompe.pompe.numero }}" data-face="{{ groupe_face.face.numero }}">
+                  <label for="index_{{ pistolet.pk }}">
+                    {{ pistolet.get_carburant_display }} {{ pistolet.numero }}
+                    {% if a_depart %}<br><span style="font-size:10.5px;color:var(--muted);">Index de fin</span>{% else %}<br><span style="font-size:10.5px;color:var(--muted);">Index de départ</span>{% endif %}
+                  </label>
+                  <input type="number" step="0.01" inputmode="decimal"
+                         id="index_{{ pistolet.pk }}" name="index_{{ pistolet.pk }}" required>
+                </div>
+              {% endfor %}
+            {% endfor %}
+          </div>
+        {% endfor %}
+        <div class="wizard-nav" id="wizardNav" style="display:none;">
+          <button type="button" class="wizard-btn prev" id="wizardPrev" style="display:none;">Précédent</button>
+          <button type="button" class="wizard-btn next" id="wizardNext">Suivant</button>
+        </div>
+        {% if not a_depart %}
+          <button type="submit" class="big-btn start">DÉMARRER MA CAISSE</button>
+        {% else %}
+          <button type="submit" class="big-btn close">VALIDER LES INDEX DE FIN</button>
+        {% endif %}
+      {% endif %}
+    </form>
+
+    <script>
+    (function(){
+      var rows = Array.prototype.slice.call(document.querySelectorAll('#indexForm .pistolet-row'));
+      if (rows.length <= 1) return;
+
+      var current = 0;
+      var progress = document.getElementById('wizardProgress');
+      var nav = document.getElementById('wizardNav');
+      var prevBtn = document.getElementById('wizardPrev');
+      var nextBtn = document.getElementById('wizardNext');
+      var fill = document.getElementById('wizardFill');
+      var label = document.getElementById('wizardLabel');
+      var submitBtn = document.querySelector('#indexForm button[type="submit"]');
+
+      var headers = document.querySelectorAll('#indexForm h2, #indexForm h3');
+      headers.forEach(function(h){ h.style.display = 'none'; });
+
+      rows.forEach(function(r){ r.style.display = 'none'; });
+      var cards = Array.prototype.slice.call(document.querySelectorAll('#indexForm .card'));
+      progress.style.display = 'block';
+      nav.style.display = 'flex';
+      if (submitBtn) submitBtn.style.display = 'none';
+
+      function render(){
+        rows.forEach(function(r, i){ r.style.display = (i === current) ? 'flex' : 'none'; });
+        var ctx = rows[current];
+        var carteActuelle = ctx.closest('.card');
+        cards.forEach(function(c){ c.style.display = (c === carteActuelle) ? 'block' : 'none'; });
+        label.textContent = 'Pompe ' + ctx.dataset.pompe + ', Face ' + ctx.dataset.face + ' — Pistolet ' + (current + 1) + ' sur ' + rows.length;
+        fill.style.width = Math.round(((current + 1) / rows.length) * 100) + '%';
+        prevBtn.style.display = (current === 0) ? 'none' : 'block';
+        if (current === rows.length - 1) {
+          nextBtn.style.display = 'none';
+          if (submitBtn) submitBtn.style.display = 'flex';
+        } else {
+          nextBtn.style.display = 'block';
+          if (submitBtn) submitBtn.style.display = 'none';
+        }
+      }
+
+      nextBtn.addEventListener('click', function(){
+        var input = rows[current].querySelector('input');
+        if (input && !input.value) { input.focus(); return; }
+        if (current < rows.length - 1) { current++; render(); }
+      });
+      prevBtn.addEventListener('click', function(){
+        if (current > 0) { current--; render(); }
+      });
+
+      render();
+    })();
+    </script>
+
+  {% endif %}
+
+</div>
+<script>
+(function(){
+  var toggle = document.getElementById('themeToggle');
+  var iconWrap = document.getElementById('themeIcon');
+  var iconSun = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+  var iconMoon = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+
+  function appliquerTheme(theme) {
+    if (theme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      iconWrap.innerHTML = iconMoon;
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      iconWrap.innerHTML = iconSun;
+    }
+  }
+
+  var stocke = localStorage.getItem('stationtrack_theme');
+  if (stocke) appliquerTheme(stocke);
+
+  toggle.addEventListener('click', function(){
+    var actuel = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    var nouveau = actuel === 'light' ? 'dark' : 'light';
+    appliquerTheme(nouveau);
+    localStorage.setItem('stationtrack_theme', nouveau);
+  });
+})();
+</script>
+</body>
+</html>

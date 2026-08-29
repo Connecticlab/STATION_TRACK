@@ -135,11 +135,23 @@ def _structurer_pistolets_par_pompe_face(pistolets_queryset):
 
 @require_employee_login(roles=[Employee.POMPISTE])
 def pompiste_accueil(request):
-    """4 etats : pas demarre / demarre (paiements + index de fin) / index de fin saisi
-    mais montant pas encore confirme (redirige vers pompiste_finaliser) / cloture.
-    Le montant_encaisse est desormais une VRAIE saisie manuelle du pompiste (pas une
-    somme automatique) — le pompiste peut oublier de cliquer un bouton de paiement en
-    pleine activite, mais sait ce qu'il a reellement en main a la fin."""
+    """Menu d'accueil Pompiste (4 boutons colores) — toujours le PREMIER ecran affiche
+    apres connexion, avant le workflow de caisse (pompiste_caisse, ex-pompiste_accueil).
+    Ecran de pure navigation, sans logique metier."""
+    employee = request.employee
+    contexte = {"employee": employee}
+    return render(request, "accounts/pompiste_accueil.html", contexte)
+
+
+@require_employee_login(roles=[Employee.POMPISTE])
+def pompiste_caisse(request):
+    """Ecran principal du workflow de caisse (ex-pompiste_accueil, renomme lors de
+    l ajout du menu d accueil a 4 boutons). 4 etats : pas demarre / demarre (paiements
+    + index de fin) / index de fin saisi mais montant pas encore confirme (redirige
+    vers pompiste_finaliser) / cloture. Le montant_encaisse est desormais une VRAIE
+    saisie manuelle du pompiste (pas une somme automatique) — le pompiste peut oublier
+    de cliquer un bouton de paiement en pleine activite, mais sait ce qu'il a
+    reellement en main a la fin."""
     from django.db import transaction
     from django.utils import timezone
 
@@ -239,7 +251,7 @@ def pompiste_accueil(request):
 
             if type_releve == ReleveIndexPompiste.FIN:
                 return redirect("accounts:pompiste_finaliser")
-            return redirect("accounts:pompiste_accueil")
+            return redirect("accounts:pompiste_caisse")
 
     contexte = {
         "employee": employee,
@@ -252,7 +264,7 @@ def pompiste_accueil(request):
         "session": session,
         "erreurs": erreurs,
     }
-    return render(request, "accounts/pompiste_accueil.html", contexte)
+    return render(request, "accounts/pompiste_caisse.html", contexte)
 
 
 @require_employee_login(roles=[Employee.POMPISTE])
@@ -273,7 +285,7 @@ def pompiste_finaliser(request):
     session = get_object_or_404(SessionCaisse, employee=employee, date=aujourdhui)
 
     if session.montant_encaisse is not None:
-        return redirect("accounts:pompiste_accueil")
+        return redirect("accounts:pompiste_caisse")
 
     pistolets_ids = list(pistolets_affectes_a(employee).values_list("id", flat=True))
     releves = ReleveIndexPompiste.objects.filter(session_caisse=session)
@@ -326,7 +338,7 @@ def pompiste_finaliser(request):
         if not erreurs:
             session.montant_encaisse = montant
             session.save()
-            return redirect("accounts:pompiste_accueil")
+            return redirect("accounts:pompiste_caisse")
 
     contexte = {
         "employee": employee,
@@ -349,7 +361,7 @@ def pompiste_ajouter_paiement(request):
     from caisse.models import SessionCaisse
 
     if request.method != "POST":
-        return redirect("accounts:pompiste_accueil")
+        return redirect("accounts:pompiste_caisse")
 
     employee = request.employee
     aujourdhui = timezone.localtime(timezone.now()).date()
@@ -372,7 +384,7 @@ def pompiste_ajouter_paiement(request):
         except ValueError:
             pass
 
-    return redirect("accounts:pompiste_accueil")
+    return redirect("accounts:pompiste_caisse")
 
 
 @require_employee_login(roles=[Employee.POMPISTE])
@@ -442,6 +454,84 @@ def pompiste_historique(request):
 
     contexte = {"employee": employee, "sessions": sessions}
     return render(request, "accounts/pompiste_historique.html", contexte)
+
+
+@require_employee_login(roles=[Employee.POMPISTE])
+def pompiste_historique_pv(request):
+    """Historique des PV de caisse (documents officiels post-confrontation, produits
+    par le Gerant) du pompiste connecte — distinct de pompiste_historique qui montre
+    ses PROPRES saisies avant confrontation. Seules les sessions avec resultat deja
+    renseigne (donc deja confrontees) apparaissent ici, jamais une session en attente."""
+    from caisse.models import SessionCaisse
+
+    employee = request.employee
+    sessions = SessionCaisse.objects.filter(
+        employee=employee, resultat__isnull=False
+    ).order_by("-date")
+
+    contexte = {"employee": employee, "sessions": sessions}
+    return render(request, "accounts/pompiste_historique_pv.html", contexte)
+
+
+@require_employee_login(roles=[Employee.POMPISTE])
+def pompiste_pv_detail(request, session_id):
+    """Affiche le PV de caisse officiel (post-confrontation) d'une session PASSEE du
+    pompiste connecte, en LECTURE SEULE — meme construction de detail par pistolet que
+    gerant_confronter (jamais une re-confrontation ici). employee=employee dans le
+    get_object_or_404 garantit qu'un pompiste ne peut jamais consulter le PV d'un
+    autre pompiste ; resultat__isnull=False garantit qu'un PV pas encore produit
+    renvoie un 404 plutot qu'une page a moitie vide."""
+    from django.shortcuts import get_object_or_404
+
+    from caisse.models import ReleveIndexGerant, ReleveIndexPompiste, SessionCaisse
+    from stations.services import pistolets_affectes_a
+
+    employee = request.employee
+    session = get_object_or_404(
+        SessionCaisse, pk=session_id, employee=employee, resultat__isnull=False
+    )
+
+    releves_gerant = ReleveIndexGerant.objects.filter(
+        employee_pompiste=employee, date_heure__date=session.date
+    )
+    releves_pompiste = ReleveIndexPompiste.objects.filter(session_caisse=session)
+    pistolets = pistolets_affectes_a(employee)
+    structure = _structurer_pistolets_par_pompe_face(pistolets)
+    for groupe_pompe in structure:
+        for groupe_face in groupe_pompe["faces"]:
+            for pistolet in groupe_face["pistolets"]:
+                releve_depart = releves_gerant.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexGerant.DEPART
+                ).first()
+                releve_fin = releves_gerant.filter(
+                    pistolet=pistolet, type_releve=ReleveIndexGerant.FIN
+                ).first()
+                pistolet.index_depart = releve_depart.valeur_index if releve_depart else None
+                pistolet.index_fin = releve_fin.valeur_index if releve_fin else None
+                if releve_depart and releve_fin:
+                    pistolet.litres_vendus = releve_fin.valeur_index - releve_depart.valeur_index
+                else:
+                    pistolet.litres_vendus = None
+
+                releve_depart_pompiste = releves_pompiste.filter(
+                    pistolet=pistolet, type_releve="depart"
+                ).first()
+                releve_fin_pompiste = releves_pompiste.filter(
+                    pistolet=pistolet, type_releve="fin"
+                ).first()
+                pistolet.index_depart_pompiste = releve_depart_pompiste.valeur_index if releve_depart_pompiste else None
+                pistolet.index_fin_pompiste = releve_fin_pompiste.valeur_index if releve_fin_pompiste else None
+                if releve_depart_pompiste and releve_fin_pompiste:
+                    pistolet.litres_vendus_pompiste = releve_fin_pompiste.valeur_index - releve_depart_pompiste.valeur_index
+                else:
+                    pistolet.litres_vendus_pompiste = None
+
+    contexte = {
+        "employee": employee,
+        "session": session,
+        "structure": structure,
+    }
+    return render(request, "accounts/pompiste_pv_detail.html", contexte)
 
 
 @require_employee_login(roles=[Employee.GERANT, Employee.CHEF_DE_PISTE])
@@ -743,8 +833,9 @@ def gerant_releve_pompiste(request, pompiste_id):
 
             if type_releve == ReleveIndexGerant.FIN:
                 releve_depart = ReleveIndexGerant.objects.filter(
-                    employee_pompiste=pompiste, pistolet=pistolet, type_releve=ReleveIndexGerant.DEPART
-                ).first()
+                    employee_pompiste=pompiste, pistolet=pistolet, type_releve=ReleveIndexGerant.DEPART,
+                    date_heure__date=aujourdhui,
+                ).order_by("-date_heure").first()
                 if releve_depart and valeur < float(releve_depart.valeur_index):
                     erreurs.append(
                         f"L'index de fin de {pistolet} ne peut pas être inférieur à l'index de départ."

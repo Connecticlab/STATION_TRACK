@@ -3,73 +3,68 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>StationTrack — Accueil</title>
+<title>StationTrack — Historique PV</title>
+{% load formatage %}
 <link rel="stylesheet" href="/static/css/design-system.css">
 <style>
 :root{
   --black:var(--st-bg);--panel:var(--st-panel);--line:var(--st-line);
-  --blue:var(--st-blue);--green:var(--st-green);--orange:var(--st-orange);--red:var(--st-red);
-  --white:var(--st-text);--muted:var(--st-muted);
+  --blue:var(--st-blue);--white:var(--st-text);--muted:var(--st-muted);
 }
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;font-family:var(--font-sans);background:var(--black);color:var(--white);transition:background .2s ease,color .2s ease}
-body{padding:20px;padding-bottom:48px;display:flex;flex-direction:column;min-height:100vh}
-.wrap{max-width:520px;margin:0 auto;width:100%;flex:1;display:flex;flex-direction:column}
-.header{margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+body{padding:16px;padding-bottom:48px}
+.wrap{max-width:560px;margin:0 auto}
+.header{margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
 .theme-toggle{
   width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
   color:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center
 }
 .header h1{font-size:19px;margin:0}
-.sub{font-size:13.5px;color:var(--muted);margin-bottom:24px}
-.grid{
-  display:grid;grid-template-columns:1fr 1fr;gap:14px;flex:1;
+.item{
+  display:flex;justify-content:space-between;align-items:center;background:var(--panel);
+  border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px;
+  text-decoration:none;color:var(--white)
 }
-@media(max-width:420px){
-  .grid{grid-template-columns:1fr}
+.item .date{font-size:14px;font-weight:700}
+.item .montant{font-size:13px;color:var(--muted);margin-top:2px}
+.item .arrow{color:var(--blue);font-size:18px}
+.badge{font-size:11px;font-weight:800;padding:5px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.3px}
+.badge.exact{background:rgba(31,174,99,.14);color:var(--st-green-text)}
+.badge.surplus{background:rgba(23,105,255,.14);color:var(--st-blue-text)}
+.badge.manquant{background:rgba(255,84,112,.14);color:var(--st-red-text)}
+.empty{color:var(--muted);text-align:center;padding:40px 20px;font-size:13.5px}
+.back{
+  display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:14px;font-weight:700;
+  text-decoration:none;height:52px;line-height:52px;border:1px solid var(--line);border-radius:12px
 }
-.tile{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
-  border-radius:18px;padding:28px 16px;text-decoration:none;color:white;font-weight:800;
-  font-size:13.5px;text-align:center;text-transform:uppercase;letter-spacing:.3px;
-  border:none;min-height:150px;transition:transform .1s;
-}
-.tile:active{transform:scale(.97);}
-.tile svg{width:34px;height:34px;stroke:white;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.tile.bleu{background:linear-gradient(160deg, var(--blue), #0d4fd6);}
-.tile.vert{background:linear-gradient(160deg, var(--green), #178a4f);}
-.tile.orange{background:linear-gradient(160deg, var(--orange), #c25e00);}
-.tile.rouge{background:linear-gradient(160deg, var(--red), #b32b42);}
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="header">
-    <h1>Bonjour, {{ employee.nom_complet }}</h1>
+    <h1>Historique des PV de caisse</h1>
     <button class="theme-toggle" id="themeToggle" type="button" aria-label="Changer de thème">
       <span id="themeIcon"><svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
     </button>
   </div>
-  <div class="sub">{{ employee.station.nom }}</div>
 
-  <div class="grid">
-    <a class="tile bleu" href="{% url 'accounts:pompiste_caisse' %}">
-      <svg viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-      Démarrer ma caisse
+  {% for session in sessions %}
+    <a class="item" href="{% url 'accounts:pompiste_pv_detail' session.pk %}">
+      <div>
+        <div class="date">{{ session.date|date:"d/m/Y" }}</div>
+        <div class="montant">Écart : {{ session.montant_ecart|fcfa }}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="badge {{ session.resultat }}">{{ session.get_resultat_display }}</span>
+        <span class="arrow">›</span>
+      </div>
     </a>
-    <a class="tile vert" href="{% url 'accounts:pompiste_historique' %}">
-      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-      Historique des relevés de caisse
-    </a>
-    <a class="tile orange" href="{% url 'accounts:pompiste_historique_pv' %}">
-      <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-      Historique des PV de caisse
-    </a>
-    <a class="tile rouge" href="{% url 'accounts:logout' %}">
-      <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      Déconnexion
-    </a>
-  </div>
+  {% empty %}
+    <div class="empty">Aucun PV de caisse pour l'instant.</div>
+  {% endfor %}
+
+  <a class="back" href="{% url 'accounts:pompiste_accueil' %}">Retour</a>
 </div>
 <script>
 (function(){
