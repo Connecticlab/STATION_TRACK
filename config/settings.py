@@ -21,10 +21,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-h^(a@l^(l_(dbgd%=e1&tnjusw=muv@192gpsalk$h&i=y==8j'
+# Lue depuis .env (jamais committee) — plus jamais de valeur en dur dans le code source.
+SECRET_KEY = config("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Lue depuis .env — echoue COTE SECURISE (False) par defaut si la variable est absente,
+# jamais l inverse (un DEBUG=True par defaut en cas d oubli serait une faille silencieuse
+# en production).
+DEBUG = config("DEBUG", default=False, cast=bool)
 
 ALLOWED_HOSTS = ['carburan.sn', '.carburan.sn', '192.168.1.11', 'localhost', '127.0.0.1', '.nip.io']
 
