@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 from pathlib import Path
-from decouple import config
+from decouple import Csv, config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -30,7 +30,10 @@ SECRET_KEY = config("SECRET_KEY")
 # en production).
 DEBUG = config("DEBUG", default=False, cast=bool)
 
-ALLOWED_HOSTS = ['carburan.sn', '.carburan.sn', '192.168.1.11', 'localhost', '127.0.0.1', '.nip.io']
+# Lue depuis .env (liste separee par des virgules) — evite tout decalage entre
+# environnements (le domaine de dev/test differait du domaine de production reel,
+# cause d'un vrai bug rencontre au premier deploiement).
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 
 
 # Application definition
@@ -89,6 +92,11 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
+# Seule 'default' (base maitre) est statique. Chaque base de societe est enregistree
+# dynamiquement au runtime par tenants.db_utils.register_company_database — jamais une
+# entree statique par societe ici, qui ne scalerait pas et casserait au demarrage si la
+# variable d environnement correspondante manquait (ex: DB_NAME_EYDON, un reste de
+# convenience pour le serveur de dev/test, jamais adapte a la production).
 DATABASES = {
     'default': {
         'ENGINE': config('DB_ENGINE'),
@@ -98,14 +106,6 @@ DATABASES = {
         'HOST': config('DB_HOST'),
         'PORT': config('DB_PORT'),
     },
-    'stationtrack_eydon': {
-        'ENGINE': config('DB_ENGINE'),
-        'NAME': config('DB_NAME_EYDON'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT'),
-    }
 }
 
 DATABASE_ROUTERS = ['tenants.db_router.TenantDatabaseRouter']
@@ -149,6 +149,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
