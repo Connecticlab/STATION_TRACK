@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.http import HttpResponseNotFound
 
 from tenants.context import set_current_tenant_db
@@ -13,6 +14,16 @@ class TenantMiddleware:
 
     def __call__(self, request):
         host = request.get_host().split(":")[0]
+
+        # Domaine racine EXACT (carburant.sn, sans sous-domaine) : page vitrine
+        # publique, jamais une resolution de societe — avant, host.split(".")[0]
+        # produisait "carburant" pour ce cas, traite a tort comme un sous-domaine de
+        # societe inexistant (404 trompeuse "Societe introuvable"), jamais une vraie
+        # page d'accueil.
+        if host == settings.BASE_DOMAIN:
+            request.urlconf = "config.urls_public"
+            return self.get_response(request)
+
         sous_domaine = host.split(".")[0]
 
         if sous_domaine == "admin":

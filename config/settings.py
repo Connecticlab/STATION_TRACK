@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'solde',
     'pv',
     'banque',
+    'public',
 ]
 
 MIDDLEWARE = [
