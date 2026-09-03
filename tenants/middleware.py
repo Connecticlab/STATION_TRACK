@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.http import HttpResponseNotFound
+from django.shortcuts import render
 
 from tenants.context import set_current_tenant_db
 from tenants.db_utils import register_company_database
@@ -35,7 +35,10 @@ class TenantMiddleware:
                 sous_domaine=sous_domaine, actif=True
             )
         except Societe.DoesNotExist:
-            return HttpResponseNotFound("Société introuvable pour ce sous-domaine.")
+            # Rendu via le template 404 standard (jamais un texte brut) — cette reponse
+            # part AVANT la resolution normale des URLs Django, donc sans ce rendu
+            # explicite elle contournerait completement notre page d erreur stylee.
+            return render(request, "404.html", status=404)
 
         request.societe = societe
         request.urlconf = "config.urls_accounts"
