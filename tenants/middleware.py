@@ -35,10 +35,12 @@ class TenantMiddleware:
                 sous_domaine=sous_domaine, actif=True
             )
         except Societe.DoesNotExist:
-            # Rendu via le template 404 standard (jamais un texte brut) — cette reponse
-            # part AVANT la resolution normale des URLs Django, donc sans ce rendu
-            # explicite elle contournerait completement notre page d erreur stylee.
-            return render(request, "404.html", status=404)
+            # Page dediee (pas la 404 generique) : ce cas precis est une opportunite
+            # commerciale potentielle (quelqu un essaie un sous-domaine qui n existe pas
+            # encore), pas juste une erreur — contact direct propose, avec le sous-domaine
+            # essaye pre-rempli dans le message WhatsApp pour un suivi commercial immediat.
+            contexte = {"sous_domaine": sous_domaine, "base_domaine": settings.BASE_DOMAIN}
+            return render(request, "public/societe_introuvable.html", contexte, status=404)
 
         request.societe = societe
         request.urlconf = "config.urls_accounts"

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Société introuvable — StationTrack</title>
+<link rel="stylesheet" href="/static/css/design-system.css">
+<style>
+:root{
+  --bg:var(--st-bg);--panel:var(--st-panel);--line:var(--st-line);
+  --blue:var(--st-blue);--orange:var(--st-orange);--text:var(--st-text);--muted:var(--st-muted);
+}
+*{box-sizing:border-box}
+body{
+  margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);color:var(--text);font-family:var(--font-sans);padding:24px;text-align:center;
+}
+.wrap{max-width:460px}
+.brandlogo{
+  width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--orange),#c25e00);
+  display:grid;place-items:center;margin:0 auto 20px;
+}
+h1{font-size:20px;margin:0 0 10px}
+p{color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 8px}
+.sous-domaine{
+  display:inline-block;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+  padding:6px 12px;font-size:13px;font-weight:700;color:var(--st-blue-text);margin:8px 0 24px;
+}
+.contacts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+.contact-btn{
+  display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--line);
+  color:var(--text);font-weight:700;font-size:13px;padding:11px 18px;border-radius:10px;text-decoration:none;
+}
+.contact-btn:hover{border-color:var(--blue)}
+.contact-btn.whatsapp{background:var(--blue);border-color:var(--blue);color:white}
+.back-link{color:var(--muted);font-size:12.5px;text-decoration:none}
+.back-link:hover{color:var(--text)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brandlogo"><svg viewBox="0 0 24 24" width="24" height="24" stroke="white" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C12 2 5 10.5 5 15a7 7 0 0 0 14 0c0-4.5-7-13-7-13z"/></svg></div>
+  <h1>Cette société n'existe pas encore</h1>
+  <p>Aucune société StationTrack n'est enregistrée sous :</p>
+  <div class="sous-domaine">{{ sous_domaine }}.{{ base_domaine }}</div>
+  <p>Si vous représentez une société de distribution de carburant et souhaitez ouvrir un espace StationTrack, contactez-nous directement.</p>
+  <div class="contacts">
+    <a class="contact-btn whatsapp" href="https://wa.me/221777341478?text=Bonjour%2C%20je%20souhaite%20creer%20un%20espace%20StationTrack%20pour%20ma%20societe%20(essaye%20%3A%20{{ sous_domaine }}.{{ base_domaine }})." target="_blank" rel="noopener">WhatsApp</a>
+    <a class="contact-btn" href="tel:+221777341478">Appeler</a>
+    <a class="contact-btn" href="mailto:connecticlab@gmail.com">Email</a>
+  </div>
+  <a class="back-link" href="https://{{ base_domaine }}/">← Retour à l'accueil StationTrack</a>
+</div>
+</body>
+</html>
